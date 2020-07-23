@@ -1,1 +1,1 @@
-* 这是一个Baseline装备库
+这是一个AI Baseline装备库
