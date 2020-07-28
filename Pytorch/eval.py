@@ -126,13 +126,13 @@ def _topk(scores, K=20):
 
 if __name__ == '__main__':
     # create logger
-    trial_name = "dbface_nearsmall_rubust_selfdata3"
+    trial_name = "dbface_nearsmall_rubust_selfdata5"
     jobdir = './output/eval_result'
-    model_path = './model/model_file/150.pth'
+    model_path = './model/model_file/dbface_light.pth'
     log = logger.create(trial_name, f"{jobdir}/eval.log")
 
     # load and init model
-    model = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
+    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="DeconvBN")
     model.load(model_path)
     model.eval()
     model.cuda()
@@ -142,7 +142,6 @@ if __name__ == '__main__':
     std = [0.289, 0.274, 0.278]
     files, anns = zip(*preprocess.load_webface("/home/data/Datasets/WIDERFace/retinaface_labels/val/label.txt",
                                            "/home/data/Datasets/WIDERFace/WIDER_val/images"))
-
 
 
     # forward and summary

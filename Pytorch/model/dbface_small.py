@@ -81,7 +81,7 @@ class Mbv3SmallFast(nn.Module):
             Block(5, 40, 240, 40, nn.ReLU(inplace=True), SeModule(40), 1),                   # 5
             Block(5, 40, 120, 48, nn.ReLU(inplace=True), SeModule(48), 1),                   # 6
             Block(5, 48, 144, 48, nn.ReLU(inplace=True), SeModule(48), 1),                   # 7 *
-            Block(5, 48, 288, 96, nn.ReLU(inplace=True), SeModule(96), 2),                   # 8
+            Block(5, 48, 288, 96, nn.ReLU(inplace=True), SeModule(96), 2),                   # 8 *
         )
 
 

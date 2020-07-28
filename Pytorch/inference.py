@@ -37,12 +37,13 @@ def detect(model, image, threshold=0.4, nms_iou=0.5):
     std = [0.289, 0.274, 0.278]
 
     if resize:
+        size = 256
         w, h = image.shape[1], image.shape[0]
         max_wh = max(w, h)
-        scale = max_wh / 256
+        scale = max_wh / size
         newImage = np.zeros((max_wh, max_wh, 3), np.uint8)
         newImage[:h, :w, :] = image
-        image = cv2.resize(newImage, (256, 256))
+        image = cv2.resize(newImage, (size, size))
     else:
         image = preprocess.pad(image)
 
@@ -55,6 +56,7 @@ def detect(model, image, threshold=0.4, nms_iou=0.5):
     a = time.time()
     hm, box, landmark = model(torch_image)
     # print(time.time()-a)
+    time_line = time.time()-a
     hm_pool = F.max_pool2d(hm, 3, 1, 1)
     scores, indices = ((hm == hm_pool).float() * hm).view(1, -1).cpu().topk(1000)
     # scores, indices = hm.view(1, -1).cpu().topk(1000)
@@ -85,12 +87,12 @@ def detect(model, image, threshold=0.4, nms_iou=0.5):
         box_landmark = list(zip(x5y5[:5], x5y5[5:]))
         objs.append(preprocess.BBox(0, xyrb=xyrb, score=score, landmark=box_landmark))
     # print ('Face Num:{}'.format(cnt))
-    return nms(objs, iou=nms_iou)
+    return nms(objs, iou=nms_iou), time_line
     # return objs
 
 def detect_image(model_path, img_path, threshold=0.66):
 
-    dbface = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
+    dbface = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="DeconvBN")
     dbface.eval()
     if torch.cuda.is_available():
         dbface.cuda()
@@ -98,18 +100,19 @@ def detect_image(model_path, img_path, threshold=0.66):
 
     img = cv2.imread(img_path)
     H, W, C = img.shape
-    objs = detect(dbface, img, threshold)
+    objs, t = detect(dbface, img, threshold)
     for obj in objs:
-        print ((obj.width*obj.height)/(H*W))
+        # print ((obj.width*obj.height)/(H*W))
         preprocess.drawbbox(img, obj)
 
-    cv2.imshow('result', img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # cv2.imshow('result', img)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    return t
 
-def camera(model_path, threshold=0.66):
+def camera(model_path, threshold=0.4):
 
-    dbface = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
+    dbface = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="DeconvBN")
     dbface.eval()
     dbface.load(model_path)
     cap = cv2.VideoCapture(0)
@@ -142,8 +145,12 @@ def camera(model_path, threshold=0.66):
 if __name__ == "__main__":
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = './model/model_file/150.pth'
-    # img_path = "/home/data/Datasets/WIDERFace/WIDER_train/images/0--Parade/0_Parade_marchingband_1_166.jpg"
-    img_path = "/home/data/TestImg/tuchong/6.jpg"
-    # detect_image(model_path, img_path, 0.2)
-    camera(model_path)
+    model_path = './model/model_file/dbface_light.pth'
+    # img_path = "/home/data/Datasets/WIDERFace/WIDER_val/images/0--Parade/0_Parade_marchingband_1_20.jpg"
+    img_path = f"/home/data/TestImg/tuchong/5.jpg"
+
+    time_line = 0
+    for i in range(100):
+        time_line += detect_image(model_path, img_path, 0.4)
+    print (time_line/100)
+    # camera(model_path, 0.72)

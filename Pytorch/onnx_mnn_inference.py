@@ -50,8 +50,8 @@ class Infer:
             self.interpreter.runSession(self.session)
             print('Net Time: {}'.format(time.time() - net_start))
             tb = time.time()
-            hm = self.interpreter.getSessionOutput(self.session, '595')
-            box = self.interpreter.getSessionOutput(self.session, '596')
+            hm = self.interpreter.getSessionOutput(self.session, '496')
+            box = self.interpreter.getSessionOutput(self.session, '497')
 
             # hm = np.array(hm.getData()).reshape((64, 64, 4))[:, :, 0]
             # box = np.array(box.getData()).reshape((1, 64, 64, 4)).transpose(0, 3, 1, 2)
@@ -170,7 +170,7 @@ class Infer:
                 frame = cv2.resize(frame, (256, 256))
 
             frame = cv2.flip(frame, 1)
-            frame = cv2.rotate(frame, cv2.ROTATE_180)
+            # frame = cv2.rotate(frame, cv2.ROTATE_180)
             objs = self.predict(frame, threshold=0.66)
 
             self.draw(frame, objs, camera=True)

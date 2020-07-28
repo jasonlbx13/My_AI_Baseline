@@ -23,14 +23,17 @@ def onnx(model, output_path):
 if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = "./model/model_file/200.pth"
+    model_path = "./model/model_file/dbface_nearsmall_rubust_selfdata5.pth"
     output_path = "./model/model_file/onnx_mnn/dbface_small_nolandmark.onnx"
     landmark = False
+    has_ext = True
+    upmode = 'UCBA'
+    wide = 64
     if landmark:
-        model = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
+        model = DBFace(has_landmark=True, wide=wide, has_ext=has_ext, upmode=upmode)
         model.load(model_path)
     else:
-        model = DBFace(has_landmark=False, wide=64, has_ext=True, upmode="UCBA")
+        model = DBFace(has_landmark=False, wide=wide, has_ext=has_ext, upmode=upmode)
         state_dict = torch.load(model_path, map_location='cpu')
         del_key = []
         for key in state_dict.keys():

@@ -149,14 +149,14 @@ class LDataset(Dataset):
 class App(object):
     def __init__(self, labelfile, imagesdir):
 
-        self.width, self.height = 800, 800
+        self.width, self.height = 256, 256
         self.mean = [0.408, 0.447, 0.47]
         self.std = [0.289, 0.274, 0.278]
-        self.batch_size = 8
+        self.batch_size = 18
         self.lr = 1e-4
         self.gpus = [0] #[0, 1, 2, 3]
         self.gpu_master = self.gpus[0]
-        self.model = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
+        self.model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="DeconvBN")
         self.model.init_weights()
         #self.model = nn.DataParallel(self.model, device_ids=self.gpus)
         self.model.cuda(device=self.gpu_master)
