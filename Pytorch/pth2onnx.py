@@ -1,5 +1,6 @@
 import os
-from model.dbface_small import DBFace
+# from model.dbface_small import DBFace
+from model.dbface_light import DBFace
 import cv2
 import torch
 import numpy as np
@@ -23,12 +24,12 @@ def onnx(model, output_path):
 if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = "./model/model_file/dbface_nearsmall_rubust_selfdata5.pth"
-    output_path = "./model/model_file/onnx_mnn/dbface_small_nolandmark.onnx"
+    model_path = "./model/model_file/dbface_light2.pth"
+    output_path = "./model/model_file/onnx_mnn/dbface_light_nolandmark.onnx"
     landmark = False
-    has_ext = True
+    has_ext = False
     upmode = 'UCBA'
-    wide = 64
+    wide = 24
     if landmark:
         model = DBFace(has_landmark=True, wide=wide, has_ext=has_ext, upmode=upmode)
         model.load(model_path)

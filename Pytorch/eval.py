@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 from utils import logger
 import numpy as np
-from model.dbface_small import DBFace
+from model.dbface_light import DBFace
 from evaluate import evaluation
 
 
@@ -128,11 +128,11 @@ if __name__ == '__main__':
     # create logger
     trial_name = "dbface_nearsmall_rubust_selfdata5"
     jobdir = './output/eval_result'
-    model_path = './model/model_file/dbface_light.pth'
+    model_path = './model/model_file/dbface_light2.pth'
     log = logger.create(trial_name, f"{jobdir}/eval.log")
 
     # load and init model
-    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="DeconvBN")
+    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA")
     model.load(model_path)
     model.eval()
     model.cuda()

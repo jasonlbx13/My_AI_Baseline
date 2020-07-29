@@ -27,8 +27,9 @@ class LDataset(Dataset):
 
     def __getitem__(self, index):
         imgfile, objs = self.items[index]
-        image = preprocess.imread(imgfile)
-
+        # image = preprocess.imread(imgfile)
+        image = imgfile
+        print (image)
         if image is None:
             log.info("{} is empty, index={}".format(imgfile, index))
             return self[random.randint(0, len(self.items)-1)]

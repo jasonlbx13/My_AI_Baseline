@@ -34,7 +34,7 @@ class DSC(nn.Module):
         self.depthwise = nn.Conv2d(in_size, in_size, kernel_size, stride, padding=1, groups=in_size, bias=False)
         self.bn1 = nn.BatchNorm2d(in_size)
         self.nolinear1 = nolinear
-        self.pointwise = nn.Conv2d(in_size, out_size, kernel_size, stride, padding=1, groups=1, bias=False)
+        self.pointwise = nn.Conv2d(in_size, out_size, 1, stride, padding=0, groups=1, bias=False)
         self.bn2 = nn.BatchNorm2d(out_size)
         self.nolinear2 = nolinear
 

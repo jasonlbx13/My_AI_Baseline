@@ -50,8 +50,8 @@ class Infer:
             self.interpreter.runSession(self.session)
             print('Net Time: {}'.format(time.time() - net_start))
             tb = time.time()
-            hm = self.interpreter.getSessionOutput(self.session, '496')
-            box = self.interpreter.getSessionOutput(self.session, '497')
+            hm = self.interpreter.getSessionOutput(self.session, '649')
+            box = self.interpreter.getSessionOutput(self.session, '650')
 
             # hm = np.array(hm.getData()).reshape((64, 64, 4))[:, :, 0]
             # box = np.array(box.getData()).reshape((1, 64, 64, 4)).transpose(0, 3, 1, 2)
@@ -151,7 +151,7 @@ class Infer:
         else:
             pass
 
-    def camera(self):
+    def camera(self, threshold = 0.4):
 
         cap = cv2.VideoCapture(0)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 256)
@@ -171,7 +171,7 @@ class Infer:
 
             frame = cv2.flip(frame, 1)
             # frame = cv2.rotate(frame, cv2.ROTATE_180)
-            objs = self.predict(frame, threshold=0.66)
+            objs = self.predict(frame, threshold)
 
             self.draw(frame, objs, camera=True)
 
@@ -188,17 +188,17 @@ class Infer:
 
 if __name__ == '__main__':
 
-    onnx_file = './model/model_file/onnx_mnn/dbface_small_nolandmark.onnx'
-    mnn_file = './model/model_file/onnx_mnn/dbface_small_nolandmark.mnn'
+    onnx_file = './model/model_file/onnx_mnn/dbface_light_nolandmark.onnx'
+    mnn_file = './model/model_file/onnx_mnn/dbface_light_nolandmark.mnn'
     infer = Infer(mnn_file)
-    # infer.camera()
+    # infer.camera(0.72)
 
-    img_path = '/home/data/TestImg/tuchong/4.jpg'
+    img_path = '/home/data/Datasets/WIDERFace/WIDER_test/images/4--Dancing/4_Dancing_Dancing_4_313.jpg'
     image = cv2.imread(img_path)
-    for i in range(100):
-        start = time.time()
-        objs = infer.predict(image, threshold=0.4)
-        print ('Inference Time:{}'.format(time.time() - start))
+    # for i in range(100):
+    start = time.time()
+    objs = infer.predict(image, threshold=0.7)
+    print ('Inference Time:{}'.format(time.time() - start))
     infer.draw(image, objs)
 
 
