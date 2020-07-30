@@ -10,6 +10,8 @@ _MODEL_URL_DOMAIN = "http://zifuture.com:1000/fs/public_models"
 _MODEL_URL_LARGE = "mbv3large-76f5a50e.pth"
 _MODEL_URL_SMALL = "mbv3small-09ace125.pth"
 
+
+
 class SeModule(nn.Module):
     def __init__(self, in_size, reduction=4):
         super(SeModule, self).__init__()
@@ -111,11 +113,60 @@ class Mbv3SmallFast(nn.Module):
         checkpoint = model_zoo.load_url(f"{_MODEL_URL_DOMAIN}/{_MODEL_URL_SMALL}")
         self.load_state_dict(checkpoint, strict=False)
 
-        
+
     def forward(self, x):
+
+        x = self.hs1(self.bn1(self.conv1(x)))
+        outs = []
+
+        for index, item in enumerate(self.bneck):
+            x = item(x)
+
+            if index in self.keep:
+                outs.append(x)
+
+        outs.append(x)
+        return outs
+
+
+class Mbv3SmallFast_075(nn.Module):
+    def __init__(self):
+        super(Mbv3SmallFast_075, self).__init__()
+
+        self.keep = [0, 2, 7]
+        self.uplayer_shape = [16, 24, 40]
+        self.output_channels = 72
+
+        self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=2, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.hs1 = nn.ReLU(inplace=True)
+
+        self.bneck = nn.Sequential(
+            Block(3, 16, 16, 16, nn.ReLU(inplace=True), None, 2),  # 0 *
+            Block(3, 16, 56, 24, nn.ReLU(inplace=True), None, 2),  # 1
+            Block(3, 24, 64, 24, nn.ReLU(inplace=True), None, 1),  # 2 *
+            Block(5, 24, 72, 32, nn.ReLU(inplace=True), SeModule(32), 2),  # 3
+            Block(5, 32, 184, 32, nn.ReLU(inplace=True), SeModule(32), 1),  # 4
+            Block(5, 32, 184, 32, nn.ReLU(inplace=True), SeModule(32), 1),  # 5
+            Block(5, 32, 96, 40, nn.ReLU(inplace=True), SeModule(40), 1),  # 6
+            Block(5, 40, 104, 40, nn.ReLU(inplace=True), SeModule(40), 1),  # 7 *
+            Block(5, 40, 216, 72, nn.ReLU(inplace=True), SeModule(72), 2),  # 8 *
+        )
+
+    def load_pretrain(self):
+
+        nn.init.kaiming_normal_(self.conv1.weight, a=0, mode='fan_in')
+        for m in self.bneck.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight)
+
+
+    def forward(self, x):
+
         x = self.hs1(self.bn1(self.conv1(x)))
 
         outs = []
+
         for index, item in enumerate(self.bneck):
             x = item(x)
 
@@ -232,12 +283,15 @@ class HeadModule(nn.Module):
 
 # DBFace Model
 class DBFace(nn.Module):
-    def __init__(self, has_landmark=False, wide=24, has_ext=False, upmode="UCBA"):
+    def __init__(self, has_landmark=False, wide=24, has_ext=False, upmode="UCBA", compress=False):
         super(DBFace, self).__init__()
         self.has_landmark = has_landmark
 
         # define backbone
-        self.bb = Mbv3SmallFast()
+        if compress:
+            self.bb = Mbv3SmallFast_075()
+        else:
+            self.bb = Mbv3SmallFast()
 
         # Get the number of branch node channels
         # stride4, stride8, stride16

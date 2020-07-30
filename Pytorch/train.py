@@ -4,8 +4,6 @@ import numpy as np
 import math
 import random
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torchvision.transforms.functional as T
 from torch.utils.data import Dataset, DataLoader
 from model.dbface_small import DBFace

@@ -128,7 +128,7 @@ if __name__ == '__main__':
     # create logger
     trial_name = "dbface_nearsmall_rubust_selfdata5"
     jobdir = './output/eval_result'
-    model_path = './model/model_file/dbface_light2.pth'
+    model_path = './model/model_file/150.pth'
     log = logger.create(trial_name, f"{jobdir}/eval.log")
 
     # load and init model

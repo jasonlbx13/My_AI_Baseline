@@ -10,8 +10,8 @@ import onnxruntime
 import MNN
 import torch.nn.functional as F
 import torch.nn as nn
-# from model.dbface_light import DBFace
-from model.dbface_small import DBFace
+from model.dbface_light import DBFace
+# from model.dbface_small import DBFace
 from utils import preprocess
 from model.losses import GIoULoss
 from tqdm import tqdm
@@ -57,8 +57,9 @@ def eval_reg(model, gt):
 
 if __name__ == '__main__':
 
-    model = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
-    model.load('./model/model_file/dbface_nearsmall_rubust_selfdata2.pth')
+    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA")
+    model_path = './model/model_file/150.pth'
+    model.load(model_path)
     model.eval()
     model.cuda()
 

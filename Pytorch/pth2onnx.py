@@ -24,8 +24,8 @@ def onnx(model, output_path):
 if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = "./model/model_file/dbface_light2.pth"
-    output_path = "./model/model_file/onnx_mnn/dbface_light_nolandmark.onnx"
+    model_path = "./model/model_file/test_model.pth"
+    output_path = "./model/model_file/onnx_mnn/test_model.onnx"
     landmark = False
     has_ext = False
     upmode = 'UCBA'
@@ -34,14 +34,14 @@ if __name__ == '__main__':
         model = DBFace(has_landmark=True, wide=wide, has_ext=has_ext, upmode=upmode)
         model.load(model_path)
     else:
-        model = DBFace(has_landmark=False, wide=wide, has_ext=has_ext, upmode=upmode)
-        state_dict = torch.load(model_path, map_location='cpu')
-        del_key = []
-        for key in state_dict.keys():
-            if key[0:8]=='landmark':
-                del_key.append(key)
-        for key in del_key:
-            state_dict.pop(key)
-        model.load_state_dict(state_dict)
+        model = DBFace(has_landmark=False, wide=wide, has_ext=has_ext, upmode=upmode, compress=True)
+        # state_dict = torch.load(model_path, map_location='cpu')
+        # del_key = []
+        # for key in state_dict.keys():
+        #     if key[0:8]=='landmark':
+        #         del_key.append(key)
+        # for key in del_key:
+        #     state_dict.pop(key)
+        # model.load_state_dict(state_dict)
     model.eval()
     onnx(model, output_path)

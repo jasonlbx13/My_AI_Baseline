@@ -125,7 +125,7 @@ def camera(model_path, threshold=0.4):
     while ok:
 
         frame = cv2.flip(frame, 1)
-        frame = cv2.rotate(frame, cv2.ROTATE_180)
+        # frame = cv2.rotate(frame, cv2.ROTATE_180)
         objs, t = detect(dbface, frame, threshold)
 
         for obj in objs:
@@ -146,12 +146,12 @@ def camera(model_path, threshold=0.4):
 if __name__ == "__main__":
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = './model/model_file/150.pth'
+    model_path = './model/model_file/dbface_light2.pth'
     # img_path = "/home/data/Datasets/SD/self_test/images/00000.jpg"
-    img_path = "/home/data/TestImg/tuchong/6.jpg"
+    img_path = "/home/data/TestImg/tuchong/5.jpg"
 
     time_line = 0
     # for i in range(100):
-    # time_line += detect_image(model_path, img_path, 0.4)
+    time_line += detect_image(model_path, img_path, 0.4)
     # print (time_line/100)
-    camera(model_path, 0.72)
+    # camera(model_path, 0.72)
