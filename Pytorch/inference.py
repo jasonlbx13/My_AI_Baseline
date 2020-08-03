@@ -5,8 +5,8 @@ import torch.nn.functional as F
 import torch.nn as nn
 import cv2
 import os
-# from model.dbface_small import DBFace
-from model.dbface_light import DBFace
+from model.dbface_small import DBFace
+# from model.dbface_light import DBFace
 import time
 
 
@@ -31,9 +31,8 @@ def nms(objs, iou=0.5):
     return keep
 
 
-def detect(model, image, threshold=0.4, nms_iou=0.5):
+def detect(model, image, threshold=0.4, nms_iou=0.5, resize=True):
 
-    resize = True
     mean = [0.408, 0.447, 0.47]
     std = [0.289, 0.274, 0.278]
 
@@ -93,7 +92,7 @@ def detect(model, image, threshold=0.4, nms_iou=0.5):
 
 def detect_image(model_path, img_path, threshold=0.66):
 
-    dbface = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA")
+    dbface = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
     dbface.eval()
     if torch.cuda.is_available():
         dbface.cuda()
@@ -103,7 +102,7 @@ def detect_image(model_path, img_path, threshold=0.66):
     H, W, C = img.shape
     objs, t = detect(dbface, img, threshold)
     for obj in objs:
-        # print ((obj.width*obj.height)/(H*W))
+        print ((obj.width*obj.height)/(H*W))
         preprocess.drawbbox(img, obj)
 
     cv2.imshow('result', img)
@@ -113,7 +112,7 @@ def detect_image(model_path, img_path, threshold=0.66):
 
 def camera(model_path, threshold=0.4):
 
-    dbface = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA")
+    dbface = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
     dbface.eval()
     dbface.load(model_path)
     cap = cv2.VideoCapture(0)
@@ -146,12 +145,12 @@ def camera(model_path, threshold=0.4):
 if __name__ == "__main__":
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = './model/model_file/dbface_light2.pth'
+    model_path = './model/model_file/dbface_nearsmall_rubust_selfdata5.pth'
     # img_path = "/home/data/Datasets/SD/self_test/images/00000.jpg"
-    img_path = "/home/data/TestImg/tuchong/5.jpg"
 
     time_line = 0
-    # for i in range(100):
-    time_line += detect_image(model_path, img_path, 0.4)
+    for i in range(15):
+        img_path = f"/home/data/TestImg/zipai/zipai{i}.jpg"
+        time_line += detect_image(model_path, img_path, 0.4)
     # print (time_line/100)
-    # camera(model_path, 0.72)
+    # camera(model_path, 0.75)

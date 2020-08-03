@@ -26,7 +26,7 @@ def predict(root, name_list, model):
         img_path = os.path.join(root, name_list[i])
         img = cv2.imread(img_path)
         try:
-            objs = detect(model, img, 0.2)
+            objs = detect(model, img, 0.4, resize=False)[0]
             objss[name_list[i]] = objs
         except:
             print (img_path)
@@ -36,11 +36,15 @@ def predict(root, name_list, model):
 
 
 def make_file(objss, output_file):
-
+    if os.path.exists(output_file):
+        os.remove(output_file)
     with open(output_file, 'a') as f:
         for k, objs in objss.items():
+            if objs==[]:
+                continue
             f.write('# ' + k + '\n')
             for obj in objs:
+
                 f.write(f'{obj.x} {obj.y} {obj.width} {obj.height} ')
                 for lx, ly in obj.landmark:
                     f.write(f'{lx} {ly} 0.0 ')
@@ -51,10 +55,10 @@ def make_file(objss, output_file):
 if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-    model_path = './model/model_file/dbface_nearsmall_rubust_selfdata2.pth'
+    model_path = './model/model_file/dbface_nearsmall_rubust_selfdata4.pth'
     root = '/home/data/Datasets/WIDERFace/WIDER_train/images'
-    label_path = '/home/data/Datasets/WIDERFace/clean_widerface_label.txt'
-    output_file = '/home/data/Datasets/WIDERFace/clean_widerface_self_label.txt'
+    label_path = '/home/data/Datasets/WIDERFace/clean_refine_widerface_50_110.txt'
+    output_file = '/home/data/Datasets/WIDERFace/clean_refined_widerface_50_110.txt'
 
     dbface = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
     dbface.eval()

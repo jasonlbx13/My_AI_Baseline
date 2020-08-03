@@ -3,11 +3,13 @@ from model import losses
 import numpy as np
 import math
 import random
+from tqdm import tqdm
 import torch
 import torchvision.transforms.functional as T
 from torch.utils.data import Dataset, DataLoader
 from model.dbface_small import DBFace
 from tensorboardX import SummaryWriter
+import cv2
 import eval
 
 
@@ -25,9 +27,8 @@ class LDataset(Dataset):
 
     def __getitem__(self, index):
         imgfile, objs = self.items[index]
-        # image = preprocess.imread(imgfile)
-        image = imgfile
-        print (image)
+        image = preprocess.imread(imgfile)
+
         if image is None:
             log.info("{} is empty, index={}".format(imgfile, index))
             return self[random.randint(0, len(self.items)-1)]
@@ -155,7 +156,7 @@ class App(object):
         self.lr = 1e-4
         self.gpus = [0] #[0, 1, 2, 3]
         self.gpu_master = self.gpus[0]
-        self.model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="DeconvBN")
+        self.model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA")
         self.model.init_weights()
         #self.model = nn.DataParallel(self.model, device_ids=self.gpus)
         self.model.cuda(device=self.gpu_master)
@@ -170,6 +171,18 @@ class App(object):
         self.per_epoch_batchs = len(self.train_loader)
         self.iter = 0
         self.epochs = 150
+
+        label_file = '/home/data/Datasets/SD/self_test/label.txt'
+        images_dir = '/home/data/Datasets/SD/self_test/images/'
+        self.mean = [0.408, 0.447, 0.47]
+        self.std = [0.289, 0.274, 0.278]
+        self.val_gt = preprocess.load_webface(label_file, images_dir)
+        self.reg_tlrb, self.reg_mask = [], []
+
+        for i in range(len(self.val_gt)):
+            box, mask = self.eval_reg(self.val_gt[i])
+            self.reg_tlrb.append(box)
+            self.reg_mask.append(mask)
 
         self.writer = SummaryWriter(log_dir=f"./output/train_result/{trial_name}/logs/tb_file", comment='dbface')
 
@@ -226,23 +239,42 @@ class App(object):
                 self.writer.add_scalar('loss', loss, epoch)
                 log.info(
                     f"iter: {self.iter}, lr: {self.lr:g}, epoch: {epoch_flt:.2f}, loss: {loss.item():.2f}, hm_loss: {hm_loss.item():.2f}, "
-                    f"box_loss: {reg_loss.item():.2f}, lmdk_loss: {landmark_loss.item():.5f}"
+                    f"box_loss: {reg_loss.item():.2f}, ldmk_loss: {landmark_loss.item():.5f}"
                 )
 
             if indbatch % 1000 == 0:
                 log.info("save hm")
-                hm_image = hm[0, 0].cpu().data.numpy()
-                preprocess.imwrite(f"{jobdir}/imgs/hm_image.jpg", hm_image * 255)
-                preprocess.imwrite(f"{jobdir}/imgs/hm_image_gt.jpg", heatmap_gt[0, 0].cpu().data.numpy() * 255)
+                # hm_image = hm[0, 0].cpu().data.numpy()
+                # preprocess.imwrite(f"{jobdir}/imgs/hm_image.jpg", hm_image * 255)
+                # preprocess.imwrite(f"{jobdir}/imgs/hm_image_gt.jpg", heatmap_gt[0, 0].cpu().data.numpy() * 255)
 
-                image = np.clip((images[0].permute(1, 2, 0).cpu().data.numpy() * self.std + self.mean) * 255, 0, 255).astype(np.uint8)
-                outobjs = eval.detect_images_giou_with_netout(hm, tlrb, landmark, threshold=0.1, ibatch=0)
-
-                im1 = image.copy()
-                for obj in outobjs:
-                    preprocess.drawbbox(im1, obj)
-                preprocess.imwrite(f"{jobdir}/imgs/train_result.jpg", im1)
-
+                # image = np.clip((images[0].permute(1, 2, 0).cpu().data.numpy() * self.std + self.mean) * 255, 0, 255).astype(np.uint8)
+                # outobjs = eval.detect_images_giou_with_netout(hm, tlrb, landmark, threshold=0.1, ibatch=0)
+                #
+                # im1 = image.copy()
+                # for obj in outobjs:
+                #     preprocess.drawbbox(im1, obj)
+                # preprocess.imwrite(f"{jobdir}/imgs/train_result.jpg", im1)
+                with torch.no_grad():
+                    self.model.eval()
+                    reg_losses = []
+                    for i in tqdm(range(len(self.val_gt))):
+                        imgfile, _ = self.val_gt[i]
+                        img = cv2.imread(imgfile)
+                        H, W, _ = img.shape
+                        mhw = max(H, W)
+                        new_img = np.zeros((mhw, mhw, 3), np.float32)
+                        new_img[:H, :W, :] = img
+                        img = cv2.resize(new_img, (256, 256))
+                        img = ((img / 255. - self.mean) / self.std).astype(np.float32)
+                        img = img.transpose(2, 0, 1)
+                        img = torch.from_numpy(img)[None].cuda()
+                        _, pred_tlrb, _ = self.model(img)
+                        reg_loss = self.giou_loss(pred_tlrb, self.reg_tlrb[i], self.reg_mask[i])
+                        reg_losses.append(reg_loss)
+                    box_val = 1 - torch.Tensor(reg_losses).mean()
+                    log.info(f"box_val: {box_val}")
+                self.model.train()
 
 
     def train(self):
@@ -267,6 +299,30 @@ class App(object):
             preprocess.mkdirs_from_file_path(file)
             torch.save(self.model.state_dict(), file)
         self.writer.close()
+
+    def eval_reg(self, gt):
+        imgfile, objs = gt
+        img = cv2.imread(imgfile)
+        H, W, _ = img.shape
+        mhw = max(H, W)
+        scale = mhw / 256
+        reg_tlrb = np.zeros((1 * 4, 64, 64), np.float32)
+        reg_mask = np.zeros((1, 64, 64), np.float32)
+
+        for obj in objs:
+            obj.x = obj.x / scale
+            obj.y = obj.y / scale
+            obj.r = obj.r / scale
+            obj.b = obj.b / scale
+            cx, cy = obj.safe_scale_center(1 / 4, 64, 64)
+            reg_box = np.array(obj.box) / 4
+            reg_tlrb[:, cy, cx] = reg_box
+            reg_mask[0, cy, cx] = 1
+
+        reg_tlrb = torch.tensor(reg_tlrb).unsqueeze(0).cuda()
+        reg_mask = torch.tensor(reg_mask).unsqueeze(0).cuda()
+
+        return reg_tlrb, reg_mask
 
 if __name__ == '__main__':
 

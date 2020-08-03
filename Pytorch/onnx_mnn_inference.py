@@ -190,15 +190,16 @@ if __name__ == '__main__':
 
     onnx_file = './model/model_file/onnx_mnn/dbface_light_nolandmark.onnx'
     mnn_file = './model/model_file/onnx_mnn/dbface_light_nolandmark.mnn'
+    # mnn_file = './model/model_file/onnx_mnn/quan.mnn'
     infer = Infer(mnn_file)
-    # infer.camera(0.72)
+    infer.camera(0.72)
 
-    img_path = '/home/data/Datasets/WIDERFace/WIDER_test/images/4--Dancing/4_Dancing_Dancing_4_313.jpg'
-    image = cv2.imread(img_path)
+    # img_path = '/home/data/Datasets/WIDERFace/WIDER_test/images/4--Dancing/4_Dancing_Dancing_4_313.jpg'
+    # image = cv2.imread(img_path)
     # for i in range(100):
-    start = time.time()
-    objs = infer.predict(image, threshold=0.7)
-    print ('Inference Time:{}'.format(time.time() - start))
-    infer.draw(image, objs)
+    # start = time.time()
+    # objs = infer.predict(image, threshold=0.7)
+    # print ('Inference Time:{}'.format(time.time() - start))
+    # infer.draw(image, objs)
 
 

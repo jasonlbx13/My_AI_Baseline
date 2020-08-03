@@ -48,7 +48,6 @@ def eval_reg(model, gt):
     reg_tlrb = torch.tensor(reg_tlrb).unsqueeze(0).cuda()
     reg_mask = torch.tensor(reg_mask).unsqueeze(0).cuda()
     img = ((img / 255. - mean) / std).astype(np.float32)
-    img = cv2.resize(img, (256, 256))
     img = img.transpose(2, 0, 1)
     img = torch.from_numpy(img)[None].cuda()
     hm, pred_tlrb, _ = model(img)
@@ -57,7 +56,7 @@ def eval_reg(model, gt):
 
 if __name__ == '__main__':
 
-    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA")
+    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=False)
     model_path = './model/model_file/150.pth'
     model.load(model_path)
     model.eval()

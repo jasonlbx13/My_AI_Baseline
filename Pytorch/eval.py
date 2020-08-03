@@ -8,6 +8,7 @@ import torch.nn as nn
 from utils import logger
 import numpy as np
 from model.dbface_light import DBFace
+# from model.dbface_small import DBFace
 from evaluate import evaluation
 
 
@@ -126,7 +127,7 @@ def _topk(scores, K=20):
 
 if __name__ == '__main__':
     # create logger
-    trial_name = "dbface_nearsmall_rubust_selfdata5"
+    trial_name = "dbface_light2_nopre"
     jobdir = './output/eval_result'
     model_path = './model/model_file/150.pth'
     log = logger.create(trial_name, f"{jobdir}/eval.log")
