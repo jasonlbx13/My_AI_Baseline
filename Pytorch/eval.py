@@ -127,13 +127,13 @@ def _topk(scores, K=20):
 
 if __name__ == '__main__':
     # create logger
-    trial_name = "dbface_light2_nopre"
+    trial_name = "dbface_light4"
     jobdir = './output/eval_result'
-    model_path = './model/model_file/150.pth'
+    model_path = './model/model_file/143.pth'
     log = logger.create(trial_name, f"{jobdir}/eval.log")
 
     # load and init model
-    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA")
+    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.5)
     model.load(model_path)
     model.eval()
     model.cuda()

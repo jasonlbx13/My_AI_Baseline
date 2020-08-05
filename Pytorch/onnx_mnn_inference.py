@@ -50,8 +50,8 @@ class Infer:
             self.interpreter.runSession(self.session)
             print('Net Time: {}'.format(time.time() - net_start))
             tb = time.time()
-            hm = self.interpreter.getSessionOutput(self.session, '649')
-            box = self.interpreter.getSessionOutput(self.session, '650')
+            hm = self.interpreter.getSessionOutput(self.session, '641')
+            box = self.interpreter.getSessionOutput(self.session, '642')
 
             # hm = np.array(hm.getData()).reshape((64, 64, 4))[:, :, 0]
             # box = np.array(box.getData()).reshape((1, 64, 64, 4)).transpose(0, 3, 1, 2)
@@ -189,17 +189,17 @@ class Infer:
 if __name__ == '__main__':
 
     onnx_file = './model/model_file/onnx_mnn/dbface_light_nolandmark.onnx'
-    mnn_file = './model/model_file/onnx_mnn/dbface_light_nolandmark.mnn'
+    mnn_file = './model/model_file/onnx_mnn/dbface_light4.mnn'
     # mnn_file = './model/model_file/onnx_mnn/quan.mnn'
     infer = Infer(mnn_file)
     infer.camera(0.72)
 
-    # img_path = '/home/data/Datasets/WIDERFace/WIDER_test/images/4--Dancing/4_Dancing_Dancing_4_313.jpg'
+    # img_path = '/home/data/TestImg/zipai/zipai5.jpg'
     # image = cv2.imread(img_path)
-    # for i in range(100):
-    # start = time.time()
+    # # for i in range(100):
+    # # start = time.time()
     # objs = infer.predict(image, threshold=0.7)
-    # print ('Inference Time:{}'.format(time.time() - start))
+    # # print ('Inference Time:{}'.format(time.time() - start))
     # infer.draw(image, objs)
 
 

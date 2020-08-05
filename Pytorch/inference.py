@@ -5,8 +5,8 @@ import torch.nn.functional as F
 import torch.nn as nn
 import cv2
 import os
-from model.dbface_small import DBFace
-# from model.dbface_light import DBFace
+# from model.dbface_small import DBFace
+from model.dbface_light import DBFace
 import time
 
 
@@ -112,7 +112,7 @@ def detect_image(model_path, img_path, threshold=0.66):
 
 def camera(model_path, threshold=0.4):
 
-    dbface = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
+    dbface = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.5)
     dbface.eval()
     dbface.load(model_path)
     cap = cv2.VideoCapture(0)
@@ -145,12 +145,12 @@ def camera(model_path, threshold=0.4):
 if __name__ == "__main__":
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = './model/model_file/dbface_nearsmall_rubust_selfdata5.pth'
+    model_path = './model/model_file/143.pth'
     # img_path = "/home/data/Datasets/SD/self_test/images/00000.jpg"
 
-    time_line = 0
-    for i in range(15):
-        img_path = f"/home/data/TestImg/zipai/zipai{i}.jpg"
-        time_line += detect_image(model_path, img_path, 0.4)
+    # time_line = 0
+    # for i in range(15):
+    #     img_path = f"/home/data/TestImg/zipai/zipai{i}.jpg"
+    #     time_line += detect_image(model_path, img_path, 0.4)
     # print (time_line/100)
-    # camera(model_path, 0.75)
+    camera(model_path, 0.75)
