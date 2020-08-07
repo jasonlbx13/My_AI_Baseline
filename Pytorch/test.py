@@ -56,7 +56,7 @@ def eval_reg(model, gt):
 
 if __name__ == '__main__':
 
-    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=False)
+    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.5)
     model_path = './model/model_file/150.pth'
     model.load(model_path)
     model.eval()

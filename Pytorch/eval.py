@@ -127,9 +127,9 @@ def _topk(scores, K=20):
 
 if __name__ == '__main__':
     # create logger
-    trial_name = "dbface_light4"
+    trial_name = "dbface_light4_1"
     jobdir = './output/eval_result'
-    model_path = './model/model_file/143.pth'
+    model_path = './model/model_file/150.pth'
     log = logger.create(trial_name, f"{jobdir}/eval.log")
 
     # load and init model

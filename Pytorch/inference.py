@@ -145,7 +145,7 @@ def camera(model_path, threshold=0.4):
 if __name__ == "__main__":
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = './model/model_file/143.pth'
+    model_path = './model/model_file/150.pth'
     # img_path = "/home/data/Datasets/SD/self_test/images/00000.jpg"
 
     # time_line = 0
@@ -153,4 +153,4 @@ if __name__ == "__main__":
     #     img_path = f"/home/data/TestImg/zipai/zipai{i}.jpg"
     #     time_line += detect_image(model_path, img_path, 0.4)
     # print (time_line/100)
-    camera(model_path, 0.75)
+    camera(model_path, 0.5)

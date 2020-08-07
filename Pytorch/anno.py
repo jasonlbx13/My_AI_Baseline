@@ -56,9 +56,9 @@ if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     model_path = './model/model_file/dbface_nearsmall_rubust_selfdata4.pth'
-    root = '/home/data/Datasets/WIDERFace/WIDER_train/images'
-    label_path = '/home/data/Datasets/WIDERFace/clean_refine_widerface_50_110.txt'
-    output_file = '/home/data/Datasets/WIDERFace/clean_refined_widerface_50_110.txt'
+    root = '/home/data/Datasets/WIDERFace/WIDER_test/images'
+    label_path = '/home/data/Datasets/WIDERFace/retinaface_labels/test/label.txt'
+    output_file = '/home/data/Datasets/WIDERFace/test_label.txt'
 
     dbface = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
     dbface.eval()

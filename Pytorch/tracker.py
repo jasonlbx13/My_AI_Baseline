@@ -68,8 +68,8 @@ class Tracker:
                                input, MNN.Tensor_DimensionType_Caffe)
         self.input_tensor2.copyFrom(tmp_input)
         self.interpreter2.runSession(self.session2)
-        hm = self.interpreter2.getSessionOutput(self.session2, '649')
-        box = self.interpreter2.getSessionOutput(self.session2, '650')
+        hm = self.interpreter2.getSessionOutput(self.session2, '641')
+        box = self.interpreter2.getSessionOutput(self.session2, '642')
 
         tmp_hm = MNN.Tensor((1, 1, 64, 64), MNN.Halide_Type_Float,
                             hm.getData(), MNN.Tensor_DimensionType_Caffe)
@@ -144,6 +144,7 @@ class Tracker:
                     for i in range(face_num):
                         cut_img = cut_img_list[i]['img']
                         x1, y1 = cut_img_list[i]['lc']
+                        old_box = cut_img_list[i]['ob']
                         obj = self.track_predict(cut_img, threshold_track)
                         if obj == {}:
                             continue
@@ -151,6 +152,8 @@ class Tracker:
                         obj['box'][2] += x1
                         obj['box'][1] += y1
                         obj['box'][3] += y1
+                        beta = 0
+                        obj['box'] = list(beta*np.array(old_box)+(1-beta)*np.array(obj['box']))
                         objs.append(obj)
                         tmp.append(obj['box'])
                     boxes = tmp
@@ -305,30 +308,67 @@ class Tracker:
         for box in boxes:
 
             x1, y1, x2, y2 = box
+
             w = int(x2 - x1 + 1)
             h = int(y2 - y1 + 1)
-            cx1 = max(0, int(x1-pad*w))
-            cy1 = max(0, int(y1-pad*h))
-            cx2 = min(width, int(x2+pad*w))
-            cy2 = min(height, int(y2+pad*h))
-            new_img = img[cy1:cy2+1, cx1:cx2+1, :]
-            cut_img_list.append({'img': new_img, 'lc': [int(x1-pad*w), int(y1-pad*h)]})
+            px = pad*w
+            py = pad*h
+
+            cx1 = max(0, int(x1-px))
+            cy1 = max(0, int(y1-py))
+            cx2 = min(width, int(x2+px))
+            cy2 = min(height, int(y2+py))
+            left_coor = [int(x1-px), int(y1-py)]
+            crop_img = img[cy1:cy2+1, cx1:cx2+1, :]
+            crop_h,crop_w,_ = crop_img.shape
+
+            black_pad = np.zeros((int(h*(1+2*pad))+1, int(w*(1+2*pad))+1, 3))
+            if x1-px<0 and y1-py>=0 and y2+py<=height:
+                black_pad[:crop_h,int(px-x1):int(px-x1+crop_w),:] = crop_img
+                crop_img = black_pad
+            elif x1-px<0 and y1-py<0:
+                black_pad[int(py-y1):int(py-y1+crop_h),int(px-x1):int(px-x1+crop_w),:] = crop_img
+                crop_img = black_pad
+            elif x1-px<0 and y2+py>height:
+                black_pad[:crop_h,int(px-x1):int(px-x1+crop_w),:] = crop_img
+                crop_img = black_pad
+            elif x2+px>width and y1-py>=0 and y2+py<=height:
+                black_pad[:crop_h,:crop_w,:] = crop_img
+                crop_img = black_pad
+            elif x2+px>width and y1-py<0:
+                black_pad[int(py-y1):int(py-y1+crop_h),:crop_w,:] = crop_img
+                crop_img = black_pad
+            elif x2+px>width and y2+py>height:
+                black_pad[:crop_h,:crop_w,:] = crop_img
+                crop_img = black_pad
+            elif y1-py<0 and x1-px>=0 and x2+px<=width:
+                black_pad[int(py-y1):int(py-y1+cy2-cy1+1),:crop_w,:] = crop_img
+                crop_img = black_pad
+            elif y2+py>height and x1-px>=0 and x2+px<=width:
+                black_pad[:crop_h,:crop_w,:] = crop_img
+                crop_img = black_pad
+            else:
+                pass
+
+            cut_img_list.append({'img': crop_img, 'lc': left_coor, 'ob': [x1,y1,x2,y2]})
 
         return cut_img_list
 
 
 if __name__ == '__main__':
 
-    ONet_file = './model/model_file/onnx_mnn/ONet-tracker.mnn'
-    DBFace_file = './model/model_file/onnx_mnn/dbface_light2_nopre_nolandmark.mnn'
-    image_file = '/home/data/TestImg/zipai/zipai5.jpg'
+    ONet_file = './model/model_file/onnx_mnn/ONet-tracker-2.mnn'
+    DBFace_file = './model/model_file/onnx_mnn/dbface_light4.mnn'
+    image_file = '/home/data/TestImg/pad1.png'
     tk = Tracker(ONet_file, DBFace_file)
 
-    tk.track(0.72,0.5)
+    tk.track(0.72,0.2)
 
 
     # boxes = []
     # img = cv2.imread(image_file)
+    # cv2.imshow('img', img)
+    # cv2.waitKey(0)
     # objs = tk.correct_predict(img)
     #
     # for obj in objs:
@@ -338,7 +378,7 @@ if __name__ == '__main__':
     # objs = []
     # for i in range(face_num):
     #     cut_img = cut_img_list[i]['img']
-    #     cv2.imshow('im', cut_img)
+    #     cv2.imshow('cut_img', cut_img)
     #     cv2.waitKey(0)
     #     x1, y1 = cut_img_list[i]['lc']
     #     obj = tk.track_predict(cut_img, 0.4)
@@ -352,6 +392,6 @@ if __name__ == '__main__':
     #     box = obj['box']
     #     cv2.rectangle(img, (int(box[0]), int(box[1])),
     #                   (int(box[2]), int(box[3])), (255, 0, 0), 1)
-    # cv2.imshow('im', img)
+    # cv2.imshow('pred_img', img)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
