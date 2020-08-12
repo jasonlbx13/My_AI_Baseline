@@ -24,8 +24,8 @@ def onnx(model, output_path):
 if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = "./model/model_file/dbface_light4.pth"
-    output_path = "./model/model_file/onnx_mnn/dbface_light4.onnx"
+    model_path = "./model/model_file/dbface_light4_1.pth"
+    output_path = "./model/model_file/onnx_mnn/dbface_light4_1.onnx"
     landmark = False
     has_ext = False
     upmode = 'UCBA'
