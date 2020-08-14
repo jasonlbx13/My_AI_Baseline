@@ -9,6 +9,11 @@ import math
 class Tracker:
 
     def __init__(self, tracker, corrector):
+        '''
+        初始化函数
+        :param tracker: 跟踪器模型文件路径
+        :param corrector: 人脸检测器模型文件路径
+        '''
         self.interpreter1 = MNN.Interpreter(tracker)
         self.session1 = self.interpreter1.createSession()
         self.input_tensor1 = self.interpreter1.getSessionInput(self.session1, 'input_data')
@@ -21,7 +26,12 @@ class Tracker:
         self.std = [0.289, 0.274, 0.278]
 
     def track_predict(self, img, threshold=0.4):
-
+        '''
+        跟踪器预测函数
+        :param img: opencv格式图片，(H,W,C)
+        :param threshold:  预测阈值，小于该阈值则判定为非人脸不显示预测框
+        :return: 含有结果的字典 obj{'box':[a,b,c,d], score: 0.9}
+        '''
         h, w, c = img.shape
         box = [0, 0, w, h]
         obj = {}
@@ -37,7 +47,7 @@ class Tracker:
         tmp = np.zeros((tmph, tmpw, 3), dtype=np.uint8)
         tmp[dy:edy + 1, dx:edx + 1, :] = img[y:ey + 1, x:ex + 1, :]
         cropped_ims[0, :, :, :] = (cv2.resize(tmp, (48, 48)) - 127.5) / 128
-        input = cropped_ims.transpose(0,3,1,2)
+        input = cropped_ims.transpose(0, 3, 1, 2)
         tmp_input = MNN.Tensor((1, 3, 48, 48), MNN.Halide_Type_Float,
                                input, MNN.Tensor_DimensionType_Caffe)
         self.input_tensor1.copyFrom(tmp_input)
@@ -54,8 +64,13 @@ class Tracker:
 
         return obj
 
-    def correct_predict(self, img, threshold=0.4):
-
+    def correct_predict(self, img, threshold=0.72):
+        '''
+        人脸检测器预测函数
+        :param img: opencv格式图片，(H,W,C)
+        :param threshold:  预测阈值，小于该阈值则判定为非人脸不显示预测框
+        :return: 人脸检测器预测的人脸集合 objs[obj{'box':[a,b,c,d], score: 0.9},...]
+        '''
         w, h = img.shape[1], img.shape[0]
         max_wh = max(w, h)
         scale = max_wh / 256
@@ -107,7 +122,12 @@ class Tracker:
         return self.nms(objs)
 
     def track(self, threshold_correct=0.5, threshold_track=0.5):
-
+        '''
+        跟踪函数，用于摄像头测试，实际部署时可省略
+        :param threshold_correct: 人脸检测器阈值
+        :param threshold_track:  人脸跟踪器阈值
+        :return: 无返回值，直接开启摄像头进行测试
+        '''
         cap = cv2.VideoCapture(0)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 256)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 256)
@@ -158,15 +178,15 @@ class Tracker:
                         # beta = 0
                         # obj['box'] = list(beta*np.array(old_box)+(1-beta)*np.array(obj['box']))  # 平滑
 
-                        for i in range(4):  # 去抖
-                            if abs(obj['box'][i]-old_box[i])<1:
-                                obj['box'][i] = old_box[i]
+                        # for i in range(4):  # 去抖
+                        #     if abs(obj['box'][i]-old_box[i])<1:
+                        #         obj['box'][i] = old_box[i]
 
                         objs.append(obj)
                         tmp.append(obj['box'])
                     boxes = tmp
             if objs!=[]:
-                self.draw(frame, objs, camera=True)
+                self.draw(frame, objs, cut_tmp,camera=True)
             else:
                 find_face = 0
                 cut_tmp = None
@@ -180,13 +200,20 @@ class Tracker:
         cv2.destroyAllWindows()
 
     def draw(self, image, objs, cut_box=None, camera=False):
-
+        '''
+        绘制标出人脸检测框后的图片，测试用， 部署时可忽略
+        :param image: opencv格式图片，(H,W,C)
+        :param objs: 人脸检测器或人脸跟踪器预测的人脸集合 objs[obj{'box':[a,b,c,d], score: 0.9},...]
+        :param cut_box: 当前帧裁剪框的坐标 [x1, y1, x2, y2], 默认None为不绘制
+        :param camera: 是否用于摄像头
+        :return: 无返回，直接显示图片
+        '''
         for j in range(len(objs)):
             x, y, r, b = [int(round(objs[j]['box'][i])) for i in range(4)]
-            cv2.rectangle(image, (x, y, r - x + 1, b - y + 1), (0, 255, 0), 2, 16)
+            cv2.rectangle(image, (x, y, r - x + 1, b - y + 1), (0, 255, 0), 1, 16)
             if cut_box is not None:
                 cx1, cy1, cx2, cy2 = [int(round(cut_box[j][i])) for i in range(4)]
-                cv2.rectangle(image, (cx1, cy1), (cx2, cy2), (255, 0, 0), 2, 16)
+                cv2.rectangle(image, (cx1, cy1), (cx2, cy2), (255, 0, 0), 1, 16)
             text = f"{objs[j]['score']:.2f}"
             cv2.putText(image, text, (x + 3, y - 5), 0, 0.5, (0, 0, 0), 1, 16)
 
@@ -198,6 +225,12 @@ class Tracker:
             pass
 
     def nms(self, objs, iou=0.5):
+        '''
+        NMS人脸框去重，用于滤掉多余的人脸检测框
+        :param objs: 人脸检测器预测的人脸集合 objs[obj{'box':[a,b,c,d], score: 0.9},...]
+        :param iou: iou阈值，大于该阈值的重复框会被舍弃
+        :return: 返回过滤后的objs
+        '''
         if objs is None or len(objs) <= 1:
             return objs
 
@@ -216,6 +249,12 @@ class Tracker:
         return keep
 
     def computeIOU(self, rec1, rec2):
+        '''
+        就算两个检测狂IOU的函数
+        :param rec1: 第一个检测框的坐标[x1,y1,x2,y2]
+        :param rec2: 第二个检测框的坐标[x1,y1,x2,y2]
+        :return: 返回两个检测框的IOU值
+        '''
         cx1, cy1, cx2, cy2 = rec1
         gx1, gy1, gx2, gy2 = rec2
         S_rec1 = (cx2 - cx1 + 1) * (cy2 - cy1 + 1)
@@ -233,12 +272,12 @@ class Tracker:
 
 
     def convert_to_square(self, box):
-        '''将box转换成更大的正方形
-        参数：
-          box：预测的box,[n,5]
-        返回值：
-          调整后的正方形box，[n,5]
         '''
+        将输入至跟踪器的图片补全为正方形
+        :param box: 输入图片的尺寸坐标 [x1, y1, x2, y2]
+        :return: 调整后的正方形box，[x1, y1, x2, y2]
+        '''
+
         square_box = box.copy()
         h = box[3] - box[1] + 1
         w = box[2] - box[0] + 1
@@ -253,16 +292,16 @@ class Tracker:
         return square_box
 
     def pad(self, bboxes, w, h):
-        '''将超出图像的box进行处理
-        参数：
-          bboxes:人脸框
-          w,h:图像长宽
-        返回值：
-          dy, dx : 为调整后的box的左上角坐标相对于原box左上角的坐标
-          edy, edx : n为调整后的box右下角相对原box左上角的相对坐标
-          y, x : 调整后的box在原图上左上角的坐标
-          ex, ex : 调整后的box在原图上右下角的坐标
-          tmph, tmpw: 原始box的长宽
+        '''
+        将超出图像的box进行处理
+        :parambboxes:人脸框
+        :paramw,h:图像长宽
+        :return: 包含调整前后box位置信息的列表
+                 dy, dx : 为调整后的box的左上角坐标相对于原box左上角的坐标
+                 edy, edx : n为调整后的box右下角相对原box左上角的相对坐标
+                 y, x : 调整后的box在原图上左上角的坐标
+                 ex, ex : 调整后的box在原图上右下角的坐标
+                 tmph, tmpw: 原始box的长宽
         '''
         #box的长宽
         tmpw, tmph = bboxes[2] - bboxes[0] + 1, bboxes[3] - bboxes[1] + 1
@@ -297,7 +336,12 @@ class Tracker:
         return return_list
 
     def calibrate_box(self, bbox, reg):
-
+        '''
+        生成预测的人脸检测框
+        :param bbox: 输入至ONET追踪器的裁剪区域坐标
+        :param reg: 追踪器预测的关于输入坐标的相对偏移量
+        :return: 对应原图的人脸检测框坐标 [x1,y1,x2,y2]
+        '''
         bbox_c = bbox.copy()
         w = bbox[2] - bbox[0] + 1
         w = np.expand_dims(w, 0)
@@ -309,13 +353,23 @@ class Tracker:
         return bbox_c
 
     def cut(self, img, boxes, old_cboxes):
-
+        '''
+        根据上一帧的先验信息，对当前帧图像进行适当裁剪以送入追踪器进行检测
+        :param img: opencv格式图片，(H,W,C)
+        :param boxes: 上一帧的预测框列表 [[x1,y1,x2,y2], ...]
+        :param old_cboxes: 上一帧的裁剪区域列表 [[x1,y1,x2,y2], ...]
+        :return: 当前帧的裁剪信息 {'img': crop_img, 'lc': left_coor, 'ob': [x1,y1,x2,y2]}
+                 crop_img: 裁剪好的图片
+                 lc: 裁剪区域的左上角坐标
+                 ob: 对应当前人脸上一帧的裁剪区域(平滑用)
+                 当前帧裁剪区域备份 [[x1,y1,x2,y2], ...]
+        '''
 
         if boxes == []:
             return []
         height, width, _ = img.shape
         cut_img_list = []
-        pad = 0.05
+        pad = 0.075
         new_boxes = []
         damping = 0.5  # 阻尼区占pad的比例
         for i in range(len(boxes)):
@@ -424,39 +478,82 @@ if __name__ == '__main__':
 
     ONet_file = './model/model_file/onnx_mnn/ONet-tracker-6.mnn'
     DBFace_file = './model/model_file/onnx_mnn/dbface_light4.mnn'
-    image_file = '/home/data/TestImg/pad1.png'
     tk = Tracker(ONet_file, DBFace_file)
 
-    tk.track(0.72,0.5)
+# 摄像头视频预测
 
+    # tk.track(0.72,0.5)
 
-    # boxes = []
-    # img = cv2.imread(image_file)
-    # cv2.imshow('img', img)
-    # cv2.waitKey(0)
-    # objs = tk.correct_predict(img)
-    #
-    # for obj in objs:
-    #     boxes.append(obj['box'])
-    # face_num = len(objs)
-    # cut_img_list = tk.cut(img, boxes)
-    # objs = []
-    # for i in range(face_num):
-    #     cut_img = cut_img_list[i]['img']
-    #     cv2.imshow('cut_img', cut_img)
-    #     cv2.waitKey(0)
-    #     x1, y1 = cut_img_list[i]['lc']
-    #     obj = tk.track_predict(cut_img, 0.4)
-    #     if obj == {}:
-    #         continue
-    #     obj['box'][0] += x1
-    #     obj['box'][2] += x1
-    #     obj['box'][1] += y1
-    #     obj['box'][3] += y1
-    #     objs.append(obj)
-    #     box = obj['box']
-    #     cv2.rectangle(img, (int(box[0]), int(box[1])),
-    #                   (int(box[2]), int(box[3])), (255, 0, 0), 1)
-    # cv2.imshow('pred_img', img)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+# 逐帧读入图片预测，除第一帧使用检测器外均为人脸追踪，丢失目标自动停止
+#     track_images_root = '/home/data/Datasets/track/girl/imgs/'
+#     boxes = []
+#     img1 = cv2.imread(track_images_root+'img00001.png')
+#     objs = tk.correct_predict(img1)
+#     tk.draw(img1, objs, cut_box=None, camera=False)
+#     face_nums = len(objs)
+#     for obj in objs:
+#         boxes.append(obj['box'])
+#     cut_tmp = None
+#
+#     for i in range(2,100):
+#         img2 = cv2.imread(track_images_root+'img{}.png'.format(str(i).zfill(5)))
+#         objs = []
+#         cut_img_list, cut_tmp = tk.cut(img2, boxes, cut_tmp)  # 读取这一帧裁剪好的图片和和这一帧裁剪的box
+#         for i in range(face_nums):
+#             cut_img = cut_img_list[i]['img'] # 裁剪后带输入的图片
+#             x1, y1 = cut_img_list[i]['lc']  # 裁剪区域的左上角坐标
+#             old_box = cut_img_list[i]['ob']  # 上一帧检测出来的bbox
+#             obj = tk.track_predict(cut_img, 0.01)  # 第i个脸的预测结果
+#             if obj == {}:
+#                 continue
+#             obj['box'][0] += x1
+#             obj['box'][2] += x1
+#             obj['box'][1] += y1
+#             obj['box'][3] += y1
+#             objs.append(obj)
+#         face_nums = len(objs)  # 计算tracker找到的人脸数量
+#         boxes = []
+#         if objs == []:
+#             print ('丢失人脸')
+#             break
+#         for obj in objs:
+#             boxes.append(obj['box'])
+#         tk.draw(img2, objs, cut_tmp, camera=False)
+
+# 逐帧读入图片，检测器会固定若干帧进行一次检测，若跟踪器丢失人脸自动启用检测器
+
+    track_images_root = '/home/data/Datasets/track/girl/imgs/'
+    boxes = []
+    img1 = cv2.imread(track_images_root+'img00001.png')
+    objs = tk.correct_predict(img1)
+    tk.draw(img1, objs, cut_box=None, camera=False)
+    face_nums = len(objs)
+    for obj in objs:
+        boxes.append(obj['box'])
+    cut_tmp = None
+
+    for i in range(2,100):
+        img2 = cv2.imread(track_images_root+'img{}.png'.format(str(i).zfill(5)))
+        objs = []
+        cut_img_list, cut_tmp = tk.cut(img2, boxes, cut_tmp)  # 读取这一帧裁剪好的图片和和这一帧裁剪的box
+        for i in range(face_nums):
+            cut_img = cut_img_list[i]['img'] # 裁剪后带输入的图片
+            x1, y1 = cut_img_list[i]['lc']  # 裁剪区域的左上角坐标
+            old_box = cut_img_list[i]['ob']  # 上一帧检测出来的bbox
+            obj = tk.track_predict(cut_img, 0.01)  # 第i个脸的预测结果
+            if obj == {}:
+                continue
+            obj['box'][0] += x1
+            obj['box'][2] += x1
+            obj['box'][1] += y1
+            obj['box'][3] += y1
+            objs.append(obj)
+        face_nums = len(objs)  # 计算tracker找到的人脸数量
+        boxes = []
+        if objs == []:
+            print ('丢失人脸，启用检测器检测')
+            break
+        for obj in objs:
+            boxes.append(obj['box'])
+        tk.draw(img2, objs, cut_tmp, camera=False)
+
