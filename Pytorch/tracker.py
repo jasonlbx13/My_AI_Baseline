@@ -136,8 +136,10 @@ class Tracker:
         boxes = []
         find_face = 0
         cut_tmp = None
+        cnt = -1
 
         while 1:
+            cnt+=1
             tmp = []
             ok, frame = cap.read()
             if not ok or frame is None:
@@ -146,7 +148,7 @@ class Tracker:
             # frame = cv2.rotate(frame, cv2.ROTATE_180)
 
             if find_face == 0:  # 如果是第一帧或上一帧tracker没有检测到人脸
-
+                cnt = 0
                 objs = self.correct_predict(frame, threshold_correct)
                 face_num = len(objs)
                 if objs == []:
@@ -160,9 +162,10 @@ class Tracker:
                 if boxes == []:
                     objs = []
                 else:
-                    cut_img_list, cut_tmp = self.cut(frame, boxes, cut_tmp)  # 读取这一帧裁剪好的图片和和这一帧裁剪的box
+                    # 根据上一帧的结果计算获取这一帧裁剪好的图片和和这一帧裁剪的box
+                    cut_img_list, cut_tmp = self.cut(frame, boxes, cut_tmp)
                     objs = []
-                    for i in range(face_num):
+                    for i in range(len(cut_img_list)):
                         cut_img = cut_img_list[i]['img']
                         x1, y1 = cut_img_list[i]['lc']
                         old_box = cut_img_list[i]['ob']    # 上一帧检测出来的bbox
@@ -178,15 +181,49 @@ class Tracker:
                         # beta = 0
                         # obj['box'] = list(beta*np.array(old_box)+(1-beta)*np.array(obj['box']))  # 平滑
 
-                        # for i in range(4):  # 去抖
-                        #     if abs(obj['box'][i]-old_box[i])<1:
-                        #         obj['box'][i] = old_box[i]
+                        for i in range(4):  # 去抖
+                            if abs(obj['box'][i]-old_box[i])<1:
+                                obj['box'][i] = old_box[i]
 
                         objs.append(obj)
                         tmp.append(obj['box'])
                     boxes = tmp
-            if objs!=[]:
-                self.draw(frame, objs, cut_tmp,camera=True)
+                    face_num = len(objs)
+
+                    if cnt % 5 == 0:  # 追踪若干帧后启用检测器进行校正判定
+                        val_objs = self.correct_predict(frame, threshold_correct)
+                        val_face_num = len(val_objs)
+                        if val_face_num > face_num: # 如果检测器检测到的人脸多于跟踪器，则立即更新为检测器结果
+                            tmp = []
+                            objs = []
+                            for obj in val_objs:
+                                objs.append(obj)
+                                tmp.append(obj['box'])
+                            boxes = tmp
+                            cut_tmp = None
+                            face_num = val_face_num
+                        elif val_face_num == face_num: # 若检测到的人脸数量相同，则通过IOU判断是否需要更新
+                            for i in range(face_num):
+                                max_iou = -1
+                                max_val_box = []
+                                for j in range(val_face_num):
+                                    rec1 = objs[i]['box']
+                                    rec2 = val_objs[j]['box']
+                                    iou = tk.computeIOU(rec1, rec2)
+                                    if iou > max_iou:
+                                        max_val_box = val_objs[j]['box']
+                                        max_iou = iou
+                                if 0 < max_iou < 0.5:
+                                    objs[i]['box'] = max_val_box
+                                    cut_tmp = None
+                                else:
+                                    pass
+
+                        else:
+                            pass
+
+            if objs!=[]: # 如果检测到人脸，则绘制人脸框
+                self.draw(frame, objs, camera=True)
             else:
                 find_face = 0
                 cut_tmp = None
@@ -210,10 +247,10 @@ class Tracker:
         '''
         for j in range(len(objs)):
             x, y, r, b = [int(round(objs[j]['box'][i])) for i in range(4)]
-            cv2.rectangle(image, (x, y, r - x + 1, b - y + 1), (0, 255, 0), 1, 16)
+            cv2.rectangle(image, (x, y, r - x + 1, b - y + 1), (0, 255, 0), 2, 16)
             if cut_box is not None:
                 cx1, cy1, cx2, cy2 = [int(round(cut_box[j][i])) for i in range(4)]
-                cv2.rectangle(image, (cx1, cy1), (cx2, cy2), (255, 0, 0), 1, 16)
+                cv2.rectangle(image, (cx1, cy1), (cx2, cy2), (255, 0, 0), 2, 16)
             text = f"{objs[j]['score']:.2f}"
             cv2.putText(image, text, (x + 3, y - 5), 0, 0.5, (0, 0, 0), 1, 16)
 
@@ -221,6 +258,7 @@ class Tracker:
             cv2.imshow('result', image)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
+
         else:
             pass
 
@@ -366,7 +404,7 @@ class Tracker:
         '''
 
         if boxes == []:
-            return []
+            return [], None
         height, width, _ = img.shape
         cut_img_list = []
         pad = 0.075
@@ -476,13 +514,13 @@ class Tracker:
 
 if __name__ == '__main__':
 
-    ONet_file = './model/model_file/onnx_mnn/ONet-tracker-6.mnn'
+    ONet_file = './model/model_file/onnx_mnn/ONet-tracker-7.mnn'
     DBFace_file = './model/model_file/onnx_mnn/dbface_light4.mnn'
     tk = Tracker(ONet_file, DBFace_file)
 
-# 摄像头视频预测
+# 摄像头视频预测, 丢失人脸自动启动人脸检测器，其余时间除第一帧均为追踪器工作
 
-    # tk.track(0.72,0.5)
+    tk.track(0.72,0.5)
 
 # 逐帧读入图片预测，除第一帧使用检测器外均为人脸追踪，丢失目标自动停止
 #     track_images_root = '/home/data/Datasets/track/girl/imgs/'
@@ -522,38 +560,50 @@ if __name__ == '__main__':
 
 # 逐帧读入图片，检测器会固定若干帧进行一次检测，若跟踪器丢失人脸自动启用检测器
 
-    track_images_root = '/home/data/Datasets/track/girl/imgs/'
-    boxes = []
-    img1 = cv2.imread(track_images_root+'img00001.png')
-    objs = tk.correct_predict(img1)
-    tk.draw(img1, objs, cut_box=None, camera=False)
-    face_nums = len(objs)
-    for obj in objs:
-        boxes.append(obj['box'])
-    cut_tmp = None
-
-    for i in range(2,100):
-        img2 = cv2.imread(track_images_root+'img{}.png'.format(str(i).zfill(5)))
-        objs = []
-        cut_img_list, cut_tmp = tk.cut(img2, boxes, cut_tmp)  # 读取这一帧裁剪好的图片和和这一帧裁剪的box
-        for i in range(face_nums):
-            cut_img = cut_img_list[i]['img'] # 裁剪后带输入的图片
-            x1, y1 = cut_img_list[i]['lc']  # 裁剪区域的左上角坐标
-            old_box = cut_img_list[i]['ob']  # 上一帧检测出来的bbox
-            obj = tk.track_predict(cut_img, 0.01)  # 第i个脸的预测结果
-            if obj == {}:
-                continue
-            obj['box'][0] += x1
-            obj['box'][2] += x1
-            obj['box'][1] += y1
-            obj['box'][3] += y1
-            objs.append(obj)
-        face_nums = len(objs)  # 计算tracker找到的人脸数量
-        boxes = []
-        if objs == []:
-            print ('丢失人脸，启用检测器检测')
-            break
-        for obj in objs:
-            boxes.append(obj['box'])
-        tk.draw(img2, objs, cut_tmp, camera=False)
+    # track_images_root = '/home/data/Datasets/track/girl/imgs/'
+    # boxes = []
+    # cnt = 0
+    # face_nums = 0
+    # cut_tmp = None
+    #
+    # for i in range(410, 490):
+    #
+    #     img = cv2.imread(track_images_root+'img{}.png'.format(str(i).zfill(5)))
+    #     if face_nums != 0 and cnt % 5 != 0:
+    #         objs = []
+    #         cut_img_list, cut_tmp = tk.cut(img, boxes, cut_tmp)  # 读取这一帧裁剪好的图片和和这一帧裁剪的box
+    #         for i in range(face_nums):
+    #             cut_img = cut_img_list[i]['img'] # 裁剪后带输入的图片
+    #             x1, y1 = cut_img_list[i]['lc']  # 裁剪区域的左上角坐标
+    #             old_box = cut_img_list[i]['ob']  # 上一帧检测出来的bbox
+    #             obj = tk.track_predict(cut_img, 0.5)  # 第i个脸的预测结果
+    #             if obj == {}:
+    #                 continue
+    #             obj['box'][0] += x1
+    #             obj['box'][2] += x1
+    #             obj['box'][1] += y1
+    #             obj['box'][3] += y1
+    #             objs.append(obj)
+    #
+    #         if objs == []:
+    #             face_nums = 0
+    #
+    #     if face_nums == 0 or cnt % 5 == 0:
+    #         cut_tmp = None
+    #         objs = tk.correct_predict(img,0.4)
+    #         if objs == []:
+    #             cnt = 0
+    #             cv2.imshow('im', img)
+    #             key = cv2.waitKey(0)
+    #             cv2.destroyAllWindows()
+    #             if key == 27:
+    #                 break
+    #             continue
+    #
+    #     face_nums = len(objs)
+    #     boxes = []
+    #     for obj in objs:
+    #         boxes.append(obj['box'])
+    #     tk.draw(img, objs, cut_tmp, camera=False)
+    #     cnt += 1
 
