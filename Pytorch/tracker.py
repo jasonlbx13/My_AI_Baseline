@@ -520,43 +520,43 @@ if __name__ == '__main__':
 
 # 摄像头视频预测, 丢失人脸自动启动人脸检测器，其余时间除第一帧均为追踪器工作
 
-    tk.track(0.72,0.5)
+    # tk.track(0.72,0.5)
 
 # 逐帧读入图片预测，除第一帧使用检测器外均为人脸追踪，丢失目标自动停止
-#     track_images_root = '/home/data/Datasets/track/girl/imgs/'
-#     boxes = []
-#     img1 = cv2.imread(track_images_root+'img00001.png')
-#     objs = tk.correct_predict(img1)
-#     tk.draw(img1, objs, cut_box=None, camera=False)
-#     face_nums = len(objs)
-#     for obj in objs:
-#         boxes.append(obj['box'])
-#     cut_tmp = None
-#
-#     for i in range(2,100):
-#         img2 = cv2.imread(track_images_root+'img{}.png'.format(str(i).zfill(5)))
-#         objs = []
-#         cut_img_list, cut_tmp = tk.cut(img2, boxes, cut_tmp)  # 读取这一帧裁剪好的图片和和这一帧裁剪的box
-#         for i in range(face_nums):
-#             cut_img = cut_img_list[i]['img'] # 裁剪后带输入的图片
-#             x1, y1 = cut_img_list[i]['lc']  # 裁剪区域的左上角坐标
-#             old_box = cut_img_list[i]['ob']  # 上一帧检测出来的bbox
-#             obj = tk.track_predict(cut_img, 0.01)  # 第i个脸的预测结果
-#             if obj == {}:
-#                 continue
-#             obj['box'][0] += x1
-#             obj['box'][2] += x1
-#             obj['box'][1] += y1
-#             obj['box'][3] += y1
-#             objs.append(obj)
-#         face_nums = len(objs)  # 计算tracker找到的人脸数量
-#         boxes = []
-#         if objs == []:
-#             print ('丢失人脸')
-#             break
-#         for obj in objs:
-#             boxes.append(obj['box'])
-#         tk.draw(img2, objs, cut_tmp, camera=False)
+    track_images_root = '/home/data/Datasets/track/david/imgs/'
+    boxes = []
+    img1 = cv2.imread(track_images_root+'img00001.png')
+    objs = tk.correct_predict(img1)
+    tk.draw(img1, objs, cut_box=None, camera=False)
+    face_nums = len(objs)
+    for obj in objs:
+        boxes.append(obj['box'])
+    cut_tmp = None
+
+    for i in range(2,100):
+        img2 = cv2.imread(track_images_root+'img{}.png'.format(str(i).zfill(5)))
+        objs = []
+        cut_img_list, cut_tmp = tk.cut(img2, boxes, cut_tmp)  # 读取这一帧裁剪好的图片和和这一帧裁剪的box
+        for i in range(face_nums):
+            cut_img = cut_img_list[i]['img'] # 裁剪后带输入的图片
+            x1, y1 = cut_img_list[i]['lc']  # 裁剪区域的左上角坐标
+            old_box = cut_img_list[i]['ob']  # 上一帧检测出来的bbox
+            obj = tk.track_predict(cut_img, 0.01)  # 第i个脸的预测结果
+            if obj == {}:
+                continue
+            obj['box'][0] += x1
+            obj['box'][2] += x1
+            obj['box'][1] += y1
+            obj['box'][3] += y1
+            objs.append(obj)
+        face_nums = len(objs)  # 计算tracker找到的人脸数量
+        boxes = []
+        if objs == []:
+            print ('丢失人脸')
+            break
+        for obj in objs:
+            boxes.append(obj['box'])
+        tk.draw(img2, objs, cut_tmp, camera=False)
 
 # 逐帧读入图片，检测器会固定若干帧进行一次检测，若跟踪器丢失人脸自动启用检测器
 
