@@ -10,7 +10,7 @@ import onnxruntime
 import MNN
 import torch.nn.functional as F
 import torch.nn as nn
-from model.dbface_light import DBFace
+from model.dbface_big import DBFace
 # from model.dbface_small import DBFace
 from utils import preprocess
 from model.losses import GIoULoss
@@ -24,23 +24,25 @@ images_dir = '/home/data/Datasets/SD/self_test/images/'
 giou_loss = GIoULoss()
 
 def eval_reg(model, gt):
+    size = 256
+    hm_size = int(size/4)
     imgfile, objs = gt
     img = cv2.imread(imgfile)
     H, W, _ = img.shape
     mhw = max(H, W)
-    scale = mhw / 256
+    scale = mhw / size
     new_img = np.zeros((mhw, mhw, 3), np.float32)
-    reg_tlrb = np.zeros((1 * 4, 64, 64), np.float32)
-    reg_mask = np.zeros((1, 64, 64), np.float32)
+    reg_tlrb = np.zeros((1 * 4, hm_size, hm_size), np.float32)
+    reg_mask = np.zeros((1, hm_size, hm_size), np.float32)
     new_img[:H, :W, :] = img
-    img = cv2.resize(new_img, (256, 256))
+    img = cv2.resize(new_img, (size, size))
 
     for obj in objs:
         obj.x = obj.x / scale
         obj.y = obj.y / scale
         obj.r = obj.r / scale
         obj.b = obj.b / scale
-        cx, cy = obj.safe_scale_center(1 / 4, 64, 64)
+        cx, cy = obj.safe_scale_center(1 / 4, hm_size, hm_size)
         reg_box = np.array(obj.box) / 4
         reg_tlrb[:, cy, cx] = reg_box
         reg_mask[0, cy, cx] = 1
@@ -56,8 +58,8 @@ def eval_reg(model, gt):
 
 if __name__ == '__main__':
 
-    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.5)
-    model_path = './model/model_file/150.pth'
+    model = DBFace()
+    model_path = './model/model_file/dbface_teacher.pth'
     model.load(model_path)
     model.eval()
     model.cuda()

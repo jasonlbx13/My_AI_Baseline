@@ -6,7 +6,7 @@ import torch.nn as nn
 import cv2
 import os
 # from model.dbface_small import DBFace
-from model.dbface_light import DBFace
+from model.dbface_big import DBFace
 import time
 
 
@@ -90,17 +90,11 @@ def detect(model, image, threshold=0.4, nms_iou=0.5, resize=True):
     return nms(objs, iou=nms_iou), time_line
     # return objs
 
-def detect_image(model_path, img_path, threshold=0.66):
-
-    dbface = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
-    dbface.eval()
-    if torch.cuda.is_available():
-        dbface.cuda()
-    dbface.load(model_path)
+def detect_image(model, img_path, threshold=0.66):
 
     img = cv2.imread(img_path)
     H, W, C = img.shape
-    objs, t = detect(dbface, img, threshold)
+    objs, t = detect(model, img, threshold, resize=False)
     for obj in objs:
         print ((obj.width*obj.height)/(H*W))
         preprocess.drawbbox(img, obj)
@@ -112,7 +106,8 @@ def detect_image(model_path, img_path, threshold=0.66):
 
 def camera(model_path, threshold=0.4):
 
-    dbface = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.5)
+    # dbface = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.5)
+    dbface = DBFace()
     dbface.eval()
     dbface.load(model_path)
     cap = cv2.VideoCapture(0)
@@ -145,12 +140,17 @@ def camera(model_path, threshold=0.4):
 if __name__ == "__main__":
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = './model/model_file/150.pth'
-    # img_path = "/home/data/Datasets/SD/self_test/images/00000.jpg"
+    model_path = './model/model_file/dbface_big.pth'
 
-    # time_line = 0
-    # for i in range(15):
-    #     img_path = f"/home/data/TestImg/zipai/zipai{i}.jpg"
-    #     time_line += detect_image(model_path, img_path, 0.4)
+    # dbface = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.5)
+    dbface = DBFace()
+    dbface.eval()
+    if torch.cuda.is_available():
+        dbface.cuda()
+    dbface.load(model_path)
+
+    for i in range(10):
+        img_path = "/home/data/TestImg/{}.jpg".format(i)
+        time_line = detect_image(dbface, img_path, 0.4)
     # print (time_line/100)
-    camera(model_path, 0.5)
+    # camera(model_path, 0.5)

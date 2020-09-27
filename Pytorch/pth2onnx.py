@@ -1,16 +1,16 @@
 import os
 # from model.dbface_small import DBFace
-from model.dbface_light import DBFace
+from model.dbface_big import DBFace
 import cv2
 import torch
 import numpy as np
 
 
-def onnx(model, output_path):
+def onnx(model, output_path, input_names, output_names):
 
     mean = [0.408, 0.447, 0.47]
     std = [0.289, 0.274, 0.278]
-    image = cv2.imread("/home/data/TestImg/tuchong/4.jpg")
+    image = cv2.imread("/home/data/TestImg/1.jpg")
     image = ((image/255.-mean)/std).astype(np.float32)
     image = cv2.resize(image, (256, 256))
     input = image.transpose(2, 0, 1)
@@ -19,22 +19,25 @@ def onnx(model, output_path):
     torch.onnx.export(model,
                       input,
                       output_path,
-                      verbose=True)
+                      verbose=True,
+                      input_names=input_names,
+                      output_names=output_names)
 
 if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = "./model/model_file/dbface_light4_1.pth"
-    output_path = "./model/model_file/onnx_mnn/dbface_light4_1.onnx"
+    model_path = "./model/model_file/dbface_teacher.pth"
+    output_path = "./model/model_file/onnx_mnn/dbface_teacher.onnx"
     landmark = False
     has_ext = False
     upmode = 'UCBA'
     wide = 24
     if landmark:
-        model = DBFace(has_landmark=True, wide=wide, has_ext=has_ext, upmode=upmode)
+        model = DBFace(has_landmark=True, wide=wide, has_ext=has_ext, upmode=upmode, compress=0.5)
         model.load(model_path)
+        onnx(model, output_path, ['input'], ['hm', 'box', 'landmark'])
     else:
-        model = DBFace(has_landmark=False, wide=wide, has_ext=has_ext, upmode=upmode, compress=0.5)
+        model = DBFace()
         state_dict = torch.load(model_path, map_location='cpu')
         del_key = []
         for key in state_dict.keys():
@@ -43,5 +46,6 @@ if __name__ == '__main__':
         for key in del_key:
             state_dict.pop(key)
         model.load_state_dict(state_dict)
+        onnx(model, output_path, ['input'], ['hm', 'box'])
     model.eval()
-    onnx(model, output_path)
+

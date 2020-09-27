@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 from utils import logger
 import numpy as np
-from model.dbface_light import DBFace
+from model.dbface_big import DBFace
 # from model.dbface_small import DBFace
 from evaluate import evaluation
 
@@ -127,13 +127,13 @@ def _topk(scores, K=20):
 
 if __name__ == '__main__':
     # create logger
-    trial_name = "dbface_light4_1"
+    trial_name = "dbface_light"
     jobdir = './output/eval_result'
-    model_path = './model/model_file/150.pth'
+    model_path = './model/model_file/dbface_teacher.pth'
     log = logger.create(trial_name, f"{jobdir}/eval.log")
 
     # load and init model
-    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.5)
+    model = DBFace()
     model.load(model_path)
     model.eval()
     model.cuda()
@@ -159,7 +159,11 @@ if __name__ == '__main__':
 
         # load image and forward
         image = preprocess.imread(file)
-        objs = detect_image(model, image, mean, std, 0.05)
+        try:
+            objs = detect_image(model, image, mean, std, 0.05)
+        except:
+            print (file)
+            continue
 
         # summary to all_result_dict
         image_pred = []

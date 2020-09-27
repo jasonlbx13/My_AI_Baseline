@@ -18,18 +18,19 @@ class Infer:
         else:
             self.interpreter = MNN.Interpreter(model_file)
             self.session = self.interpreter.createSession()
-            self.input_tensor = self.interpreter.getSessionInput(self.session, 'input.1')
+            self.input_tensor = self.interpreter.getSessionInput(self.session, 'input')
         self.mean = [0.408, 0.447, 0.47]
         self.std = [0.289, 0.274, 0.278]
 
     def predict(self, image, threshold=0.4):
         a = time.time()
+        size = 256
         w, h = image.shape[1], image.shape[0]
         max_wh = max(w, h)
-        scale = max_wh / 256
+        scale = max_wh / size
         newImage = np.zeros((max_wh, max_wh, 3), np.uint8)
         newImage[:h, :w, :] = image
-        image = cv2.resize(newImage, (256, 256))
+        image = cv2.resize(newImage, (size, size))
         image = ((image / 255. - self.mean) / self.std).astype(np.float32)
         input = image.transpose(2, 0, 1)[np.newaxis, :]
         print('qianchuli:{}'.format(time.time() - a))
@@ -42,7 +43,10 @@ class Infer:
 
         else:
             c = time.time()
-            tmp_input = MNN.Tensor((1, 3, 256, 256), MNN.Halide_Type_Float, \
+            iw, ih = size, size
+            self.interpreter.resizeTensor(self.input_tensor, (1, 3, ih, iw))
+            self.interpreter.resizeSession(self.session)
+            tmp_input = MNN.Tensor((1, 3, ih, iw), MNN.Halide_Type_Float, \
                                    input, MNN.Tensor_DimensionType_Caffe)
             self.input_tensor.copyFrom(tmp_input)
             print('mnn_qianchuli:{}'.format(time.time() - c))
@@ -50,17 +54,17 @@ class Infer:
             self.interpreter.runSession(self.session)
             print('Net Time: {}'.format(time.time() - net_start))
             tb = time.time()
-            hm = self.interpreter.getSessionOutput(self.session, '641')
-            box = self.interpreter.getSessionOutput(self.session, '642')
+            hm = self.interpreter.getSessionOutput(self.session, 'hm')
+            box = self.interpreter.getSessionOutput(self.session, 'box')
 
             # hm = np.array(hm.getData()).reshape((64, 64, 4))[:, :, 0]
             # box = np.array(box.getData()).reshape((1, 64, 64, 4)).transpose(0, 3, 1, 2)
 
-            tmp_hm = MNN.Tensor((1, 1, 64, 64), MNN.Halide_Type_Float, \
+            tmp_hm = MNN.Tensor((1, 1, iw/4, ih/4), MNN.Halide_Type_Float, \
                                    hm.getData(), MNN.Tensor_DimensionType_Caffe)
             hm.copyToHostTensor(tmp_hm)
             hm = tmp_hm.getData()
-            tmp_box = MNN.Tensor((1, 4, 64, 64), MNN.Halide_Type_Float, \
+            tmp_box = MNN.Tensor((1, 4, iw/4, ih/4), MNN.Halide_Type_Float, \
                                    box.getData(), MNN.Tensor_DimensionType_Caffe)
             box.copyToHostTensor(tmp_box)
             box = tmp_box.getData()
@@ -70,8 +74,8 @@ class Infer:
         indices, scores = np.asarray(heapq.nlargest(100, enumerate(hm_line), lambda x: x[1]),
                                      dtype=np.float32).transpose()
 
-        ys = indices / 64
-        xs = indices % 64
+        ys = indices / (ih/4)
+        xs = indices % (iw/4)
         ys = [int(ys[i]) for i in range(len(ys))]
         xs = [int(xs[j]) for j in range(len(xs))]
 
@@ -189,17 +193,16 @@ class Infer:
 if __name__ == '__main__':
 
     onnx_file = './model/model_file/onnx_mnn/dbface_light_nolandmark.onnx'
-    mnn_file = './model/model_file/onnx_mnn/dbface_light4.mnn'
+    mnn_file = './model/model_file/onnx_mnn/dbface_teacher.mnn'
     # mnn_file = './model/model_file/onnx_mnn/quan.mnn'
     infer = Infer(mnn_file)
     infer.camera(0.72)
 
-    # img_path = '/home/data/TestImg/zipai/zipai5.jpg'
+    # img_path = "/home/data/Datasets/spider/ditou/baiduditou00197.jpg"
     # image = cv2.imread(img_path)
-    # # for i in range(100):
-    # # start = time.time()
-    # objs = infer.predict(image, threshold=0.7)
-    # # print ('Inference Time:{}'.format(time.time() - start))
+    # objs = infer.predict(image, 0.4)
     # infer.draw(image, objs)
+
+
 
 

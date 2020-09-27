@@ -114,6 +114,7 @@ class LDataset(Dataset):
 			
             if obj.haslandmark:
                 reg_landmark = np.array(obj.x5y5_cat_landmark) / stride
+                print (reg_landmark)
                 x5y5 = [cx]*5 + [cy]*5
                 rvalue = (reg_landmark - x5y5)
                 landmark_gt[0:10, cy, cx] = np.array(preprocess.log(rvalue)) / 4

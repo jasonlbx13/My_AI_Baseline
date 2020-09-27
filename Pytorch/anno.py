@@ -5,7 +5,7 @@ import PIL.Image as Image
 import os
 from tqdm import tqdm
 from inference import detect
-from model.dbface_small import DBFace
+from model.dbface_big import DBFace
 
 
 def get_root(label_path):
@@ -25,12 +25,12 @@ def predict(root, name_list, model):
     for i in tqdm(range(len(name_list))):
         img_path = os.path.join(root, name_list[i])
         img = cv2.imread(img_path)
-        try:
-            objs = detect(model, img, 0.4, resize=False)[0]
-            objss[name_list[i]] = objs
-        except:
-            print (img_path)
-            continue
+        # try:
+        objs = detect(model, img, 0.4, resize=True)[0]
+        objss[name_list[i]] = objs
+        # except:
+        #     print (img_path)
+        #     continue
     print ('predict done!')
     return objss
 
@@ -55,15 +55,15 @@ def make_file(objss, output_file):
 if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-    model_path = './model/model_file/dbface_nearsmall_rubust_selfdata4.pth'
-    root = '/home/data/Datasets/video_head/Alexey_Navalniy/'
-    label_path = '/home/data/Datasets/video_head/label.txt'
-    output_file = '/home/data/Datasets/video_head/Alexey_Navalniy_label.txt'
+    model_path = './model/model_file/dbface_big.pth'
+    root = '/home/data/Datasets/WIDERFace/WIDER_val/20cut_img/images'
+    label_path = '/home/data/Datasets/WIDERFace/WIDER_val/20cut_img/lc_list.txt'
+    output_file = '/home/data/Datasets/WIDERFace/WIDER_val/label.txt'
 
-    dbface = DBFace(has_landmark=True, wide=64, has_ext=True, upmode="UCBA")
+    dbface = DBFace()
     dbface.eval()
     dbface.cuda()
-    dbface.load(model_path)
+    dbface.load(model_path, device={'cuda:7':'cuda:0'})
 
     name_list = get_root(label_path)
     objss = predict(root, name_list, dbface)

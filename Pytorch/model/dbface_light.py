@@ -212,7 +212,6 @@ class Mbv3SmallFast_05(nn.Module):
     def forward(self, x):
 
         x = self.hs1(self.bn1(self.conv1(x)))
-
         outs = []
 
         for index, item in enumerate(self.bneck):

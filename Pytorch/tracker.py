@@ -20,7 +20,7 @@ class Tracker:
 
         self.interpreter2 = MNN.Interpreter(corrector)
         self.session2 = self.interpreter2.createSession()
-        self.input_tensor2 = self.interpreter2.getSessionInput(self.session2, 'input.1')
+        self.input_tensor2 = self.interpreter2.getSessionInput(self.session2, 'input')
 
         self.mean = [0.408, 0.447, 0.47]
         self.std = [0.289, 0.274, 0.278]
@@ -32,6 +32,7 @@ class Tracker:
         :param threshold:  预测阈值，小于该阈值则判定为非人脸不显示预测框
         :return: 含有结果的字典 obj{'box':[a,b,c,d], score: 0.9}
         '''
+        yuv = True
         h, w, c = img.shape
         box = [0, 0, w, h]
         obj = {}
@@ -42,25 +43,36 @@ class Tracker:
             pass
         box[0:4] = np.round(box[0:4])
         dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = self.pad(box, w, h)
-        cropped_ims = np.zeros((1, 48, 48, 3), dtype=np.float32)
+        if yuv:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            cropped_ims = np.zeros((1, 48, 48, 1), dtype=np.float32)
+            tmp = np.zeros((tmph, tmpw, 1), dtype=np.uint8)
+            tmp[dy:edy + 1, dx:edx + 1, :] = img[y:ey + 1, x:ex + 1, np.newaxis]
+            cropped_ims[0, :, :, :] = (cv2.resize(tmp, (48, 48))[:, :, np.newaxis] - 127.5) / 128
+        else:
+            cropped_ims = np.zeros((1, 48, 48, 3), dtype=np.float32)
+            tmp = np.zeros((tmph, tmpw, 3), dtype=np.uint8)
+            tmp[dy:edy + 1, dx:edx + 1, :] = img[y:ey + 1, x:ex + 1, :]
+            cropped_ims[0, :, :, :] = (cv2.resize(tmp, (48, 48)) - 127.5) / 128
 
-        tmp = np.zeros((tmph, tmpw, 3), dtype=np.uint8)
-        tmp[dy:edy + 1, dx:edx + 1, :] = img[y:ey + 1, x:ex + 1, :]
-        cropped_ims[0, :, :, :] = (cv2.resize(tmp, (48, 48)) - 127.5) / 128
         input = cropped_ims.transpose(0, 3, 1, 2)
-        tmp_input = MNN.Tensor((1, 3, 48, 48), MNN.Halide_Type_Float,
-                               input, MNN.Tensor_DimensionType_Caffe)
+        if yuv:
+            tmp_input = MNN.Tensor((1, 1, 48, 48), MNN.Halide_Type_Float,
+                                   input, MNN.Tensor_DimensionType_Caffe)
+        else:
+            tmp_input = MNN.Tensor((1, 3, 48, 48), MNN.Halide_Type_Float,
+                                   input, MNN.Tensor_DimensionType_Caffe)
         self.input_tensor1.copyFrom(tmp_input)
         a = time.time()
         self.interpreter1.runSession(self.session1)
         # print(time.time() - a)
         cls_prob = self.interpreter1.getSessionOutput(self.session1, 'y_cls_prob').getData()
         bbox_pred = self.interpreter1.getSessionOutput(self.session1, 'y_bbox_pred').getData()
-        if cls_prob[1] > threshold:
+        if 1-cls_prob[0] > threshold:
             box_c = self.calibrate_box(box, bbox_pred)
             corpbbox = [box_c[0], box_c[1], box_c[2], box_c[3]]
             obj['box'] = corpbbox
-            obj['score'] = cls_prob[1]
+            obj['score'] = 1-cls_prob[0]
 
         return obj
 
@@ -83,8 +95,8 @@ class Tracker:
                                input, MNN.Tensor_DimensionType_Caffe)
         self.input_tensor2.copyFrom(tmp_input)
         self.interpreter2.runSession(self.session2)
-        hm = self.interpreter2.getSessionOutput(self.session2, '641')
-        box = self.interpreter2.getSessionOutput(self.session2, '642')
+        hm = self.interpreter2.getSessionOutput(self.session2, 'hm')
+        box = self.interpreter2.getSessionOutput(self.session2, 'box')
 
         tmp_hm = MNN.Tensor((1, 1, 64, 64), MNN.Halide_Type_Float,
                             hm.getData(), MNN.Tensor_DimensionType_Caffe)
@@ -132,7 +144,6 @@ class Tracker:
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 256)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 256)
 
-        face_num = 0
         boxes = []
         find_face = 0
         cut_tmp = None
@@ -148,9 +159,9 @@ class Tracker:
             # frame = cv2.rotate(frame, cv2.ROTATE_180)
 
             if find_face == 0:  # 如果是第一帧或上一帧tracker没有检测到人脸
+                print ('启动人脸检测器{}'.format(time.time()))
                 cnt = 0
                 objs = self.correct_predict(frame, threshold_correct)
-                face_num = len(objs)
                 if objs == []:
                     boxes = []
                 else:
@@ -166,7 +177,7 @@ class Tracker:
                     cut_img_list, cut_tmp = self.cut(frame, boxes, cut_tmp)
                     objs = []
                     for i in range(len(cut_img_list)):
-                        cut_img = cut_img_list[i]['img']
+                        cut_img = np.array(cut_img_list[i]['img'], np.uint8)
                         x1, y1 = cut_img_list[i]['lc']
                         old_box = cut_img_list[i]['ob']    # 上一帧检测出来的bbox
                         obj = self.track_predict(cut_img, threshold_track)
@@ -514,49 +525,49 @@ class Tracker:
 
 if __name__ == '__main__':
 
-    ONet_file = './model/model_file/onnx_mnn/ONet-tracker-7.mnn'
-    DBFace_file = './model/model_file/onnx_mnn/dbface_light4.mnn'
+    ONet_file = './model/model_file/onnx_mnn/ONet-tracker-light-5_2.mnn'
+    DBFace_file = './model/model_file/onnx_mnn/dbface_teacher.mnn'
     tk = Tracker(ONet_file, DBFace_file)
 
 # 摄像头视频预测, 丢失人脸自动启动人脸检测器，其余时间除第一帧均为追踪器工作
 
-    # tk.track(0.72,0.5)
+    tk.track(0.72,0.9)
 
 # 逐帧读入图片预测，除第一帧使用检测器外均为人脸追踪，丢失目标自动停止
-    track_images_root = '/home/data/Datasets/track/david/imgs/'
-    boxes = []
-    img1 = cv2.imread(track_images_root+'img00001.png')
-    objs = tk.correct_predict(img1)
-    tk.draw(img1, objs, cut_box=None, camera=False)
-    face_nums = len(objs)
-    for obj in objs:
-        boxes.append(obj['box'])
-    cut_tmp = None
-
-    for i in range(2,100):
-        img2 = cv2.imread(track_images_root+'img{}.png'.format(str(i).zfill(5)))
-        objs = []
-        cut_img_list, cut_tmp = tk.cut(img2, boxes, cut_tmp)  # 读取这一帧裁剪好的图片和和这一帧裁剪的box
-        for i in range(face_nums):
-            cut_img = cut_img_list[i]['img'] # 裁剪后带输入的图片
-            x1, y1 = cut_img_list[i]['lc']  # 裁剪区域的左上角坐标
-            old_box = cut_img_list[i]['ob']  # 上一帧检测出来的bbox
-            obj = tk.track_predict(cut_img, 0.01)  # 第i个脸的预测结果
-            if obj == {}:
-                continue
-            obj['box'][0] += x1
-            obj['box'][2] += x1
-            obj['box'][1] += y1
-            obj['box'][3] += y1
-            objs.append(obj)
-        face_nums = len(objs)  # 计算tracker找到的人脸数量
-        boxes = []
-        if objs == []:
-            print ('丢失人脸')
-            break
-        for obj in objs:
-            boxes.append(obj['box'])
-        tk.draw(img2, objs, cut_tmp, camera=False)
+#     track_images_root = '/home/data/Datasets/track/track_val/'
+#     boxes = []
+#     img1 = cv2.imread(track_images_root+'00000.png')
+#     objs = tk.correct_predict(img1)
+#     tk.draw(img1, objs, cut_box=None, camera=False)
+#     face_nums = len(objs)
+#     for obj in objs:
+#         boxes.append(obj['box'])
+#     cut_tmp = None
+#
+#     for i in range(2,100):
+#         img2 = cv2.imread(track_images_root+'{}.png'.format(str(i).zfill(5)))
+#         objs = []
+#         cut_img_list, cut_tmp = tk.cut(img2, boxes, cut_tmp)  # 读取这一帧裁剪好的图片和和这一帧裁剪的box
+#         for i in range(face_nums):
+#             cut_img = cut_img_list[i]['img'] # 裁剪后带输入的图片
+#             x1, y1 = cut_img_list[i]['lc']  # 裁剪区域的左上角坐标
+#             old_box = cut_img_list[i]['ob']  # 上一帧检测出来的bbox
+#             obj = tk.track_predict(cut_img, 0.5)  # 第i个脸的预测结果
+#             if obj == {}:
+#                 continue
+#             obj['box'][0] += x1
+#             obj['box'][2] += x1
+#             obj['box'][1] += y1
+#             obj['box'][3] += y1
+#             objs.append(obj)
+#         face_nums = len(objs)  # 计算tracker找到的人脸数量
+#         boxes = []
+#         if objs == []:
+#             print ('丢失人脸')
+#             break
+#         for obj in objs:
+#             boxes.append(obj['box'])
+#         tk.draw(img2, objs, cut_tmp, camera=False)
 
 # 逐帧读入图片，检测器会固定若干帧进行一次检测，若跟踪器丢失人脸自动启用检测器
 

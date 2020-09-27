@@ -24,7 +24,12 @@ class Tracker:
         :param threshold:  预测阈值，小于该阈值则判定为非人脸不显示预测框
         :return: 含有结果的字典 obj{'box':[a,b,c,d], score: 0.9}
         '''
-        h, w, c = img.shape
+
+        yuv = True
+        if yuv:
+            h,w = img.shape
+        else:
+            h, w, c = img.shape
         box = [0, 0, w, h]
         obj = {}
 
@@ -34,24 +39,35 @@ class Tracker:
             pass
         box[0:4] = np.round(box[0:4])
         dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = self.pad(box, w, h)
-        cropped_ims = np.zeros((1, 48, 48, 3), dtype=np.float32)
 
-        tmp = np.zeros((tmph, tmpw, 3), dtype=np.uint8)
-        tmp[dy:edy + 1, dx:edx + 1, :] = img[y:ey + 1, x:ex + 1, :]
-        cropped_ims[0, :, :, :] = (cv2.resize(tmp, (48, 48)) - 127.5) / 128
+        if yuv:
+            cropped_ims = np.zeros((1, 48, 48, 1), dtype=np.float32)
+            tmp = np.zeros((tmph, tmpw, 1), dtype=np.uint8)
+            tmp[dy:edy + 1, dx:edx + 1, :] = img[y:ey + 1, x:ex + 1, np.newaxis]
+            cropped_ims[0, :, :, :] = (cv2.resize(tmp, (48, 48))[:, :, np.newaxis] - 127.5) / 128
+        else:
+            cropped_ims = np.zeros((1, 48, 48, 3), dtype=np.float32)
+            tmp = np.zeros((tmph, tmpw, 3), dtype=np.uint8)
+            tmp[dy:edy + 1, dx:edx + 1, :] = img[y:ey + 1, x:ex + 1, :]
+            cropped_ims[0, :, :, :] = (cv2.resize(tmp, (48, 48)) - 127.5) / 128
+
         input = cropped_ims.transpose(0, 3, 1, 2)
-        tmp_input = MNN.Tensor((1, 3, 48, 48), MNN.Halide_Type_Float,
-                               input, MNN.Tensor_DimensionType_Caffe)
+        if yuv:
+            tmp_input = MNN.Tensor((1, 1, 48, 48), MNN.Halide_Type_Float,
+                                   input, MNN.Tensor_DimensionType_Caffe)
+        else:
+            tmp_input = MNN.Tensor((1, 3, 48, 48), MNN.Halide_Type_Float,
+                                   input, MNN.Tensor_DimensionType_Caffe)
         self.input_tensor1.copyFrom(tmp_input)
         self.interpreter1.runSession(self.session1)
 
         cls_prob = self.interpreter1.getSessionOutput(self.session1, 'y_cls_prob').getData()
         bbox_pred = self.interpreter1.getSessionOutput(self.session1, 'y_bbox_pred').getData()
-        if cls_prob[1] > threshold:
+        if 1-cls_prob[0] > threshold:
             box_c = self.calibrate_box(box, bbox_pred)
             corpbbox = [box_c[0], box_c[1], box_c[2], box_c[3]]
             obj['box'] = corpbbox
-            obj['score'] = cls_prob[1]
+            obj['score'] = 1-cls_prob[0]
 
         return obj
 
@@ -265,7 +281,7 @@ if __name__ == '__main__':
 
     # 逐帧跟踪
     # 第一帧检测帧
-    img1 = cv2.imread('/home/data/Datasets/track/girl/imgs/img00000.png')
+    img1 = cv2.imread('/home/data/Datasets/track/track_val/')
     boxes = [[145, 89, 222, 168]] # 模拟检测器检测出的人脸检测框
     for i in range(len(boxes)):
         cv2.rectangle(img1, (boxes[i][0], boxes[i][1]), (boxes[i][2], boxes[i][3]), (0, 255, 0), 2)
@@ -281,7 +297,7 @@ if __name__ == '__main__':
     for i in range(len(cut_img_list)):
         cut_img = cut_img_list[i]['img'] # 裁剪好的带输入图像
         x1, y1 = cut_img_list[i]['lc'] # 裁剪区域左上角坐标
-        old_box = cut_img_list[i]['ob'] # 上一帧的人脸框预测未知
+        old_box = cut_img_list[i]['ob'] # 上一帧的人脸框预测位置
         obj = tk.track_predict(cut_img) # 跟踪器预测当前帧人脸位置
         if obj == {}:
             continue
