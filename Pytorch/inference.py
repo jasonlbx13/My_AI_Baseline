@@ -6,7 +6,7 @@ import torch.nn as nn
 import cv2
 import os
 # from model.dbface_small import DBFace
-from model.dbface_big import DBFace
+from model.dbface_light import DBFace
 import time
 
 
@@ -37,7 +37,7 @@ def detect(model, image, threshold=0.4, nms_iou=0.5, resize=True):
     std = [0.289, 0.274, 0.278]
 
     if resize:
-        size = 256
+        size = 800
         w, h = image.shape[1], image.shape[0]
         max_wh = max(w, h)
         scale = max_wh / size
@@ -104,12 +104,8 @@ def detect_image(model, img_path, threshold=0.66):
     cv2.destroyAllWindows()
     return t
 
-def camera(model_path, threshold=0.4):
+def camera(model, threshold=0.4):
 
-    # dbface = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.5)
-    dbface = DBFace()
-    dbface.eval()
-    dbface.load(model_path)
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 256)  # 设置宽度
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 256)  # 设置长度
@@ -140,17 +136,16 @@ def camera(model_path, threshold=0.4):
 if __name__ == "__main__":
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = './model/model_file/dbface_big.pth'
+    model_path = './model/model_file/dbface_light_dl3.pth'
 
-    # dbface = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.5)
-    dbface = DBFace()
+    dbface = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.75)
+    # dbface = DBFace()
     dbface.eval()
     if torch.cuda.is_available():
         dbface.cuda()
     dbface.load(model_path)
 
-    for i in range(10):
-        img_path = "/home/data/TestImg/{}.jpg".format(i)
-        time_line = detect_image(dbface, img_path, 0.4)
-    # print (time_line/100)
-    # camera(model_path, 0.5)
+    img_path = "/home/data/TestImg/9.jpg"
+    time_line = detect_image(dbface, img_path, 0.4)
+
+    # camera(dbface, 0.5)

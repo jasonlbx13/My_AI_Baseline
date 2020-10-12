@@ -1,6 +1,6 @@
 import os
 # from model.dbface_small import DBFace
-from model.dbface_big import DBFace
+from model.dbface_light import DBFace
 import cv2
 import torch
 import numpy as np
@@ -26,18 +26,18 @@ def onnx(model, output_path, input_names, output_names):
 if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    model_path = "./model/model_file/dbface_teacher.pth"
-    output_path = "./model/model_file/onnx_mnn/dbface_teacher.onnx"
+    model_path = "./model/model_file/dbface_light_dl4.pth"
+    output_path = "./model/model_file/onnx_mnn/dbface_light_dl4.onnx"
     landmark = False
     has_ext = False
     upmode = 'UCBA'
     wide = 24
     if landmark:
-        model = DBFace(has_landmark=True, wide=wide, has_ext=has_ext, upmode=upmode, compress=0.5)
+        model = DBFace(has_landmark=True, wide=wide, has_ext=has_ext, upmode=upmode, compress=0.75)
         model.load(model_path)
         onnx(model, output_path, ['input'], ['hm', 'box', 'landmark'])
     else:
-        model = DBFace()
+        model = DBFace(has_landmark=False, wide=wide, has_ext=has_ext, upmode=upmode, compress=0.75)
         state_dict = torch.load(model_path, map_location='cpu')
         del_key = []
         for key in state_dict.keys():

@@ -1,6 +1,6 @@
-
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 import numpy as np
 
 
@@ -114,3 +114,18 @@ class GIoULoss(nn.Module):
         gious = ious - (enclose_area - u) / enclose_area
         iou_distance = 1 - gious
         return torch.sum(iou_distance * weight) / avg_factor
+
+
+class KLLoss(torch.nn.Module):
+    def __init__(self):
+        super(KLLoss, self).__init__()
+        self.kl_loss = nn.KLDivLoss(size_average=False, reduce=False)
+
+    def forward(self, student, teacher, T=1):
+        student = student.view(student.shape[0], -1)
+        teacher = teacher.view(teacher.shape[0], -1)
+        soft_student = F.log_softmax(student/T, dim=-1)
+        soft_teacher = F.softmax(teacher/T, dim=-1)
+        loss = self.kl_loss(soft_student, soft_teacher)
+
+        return torch.mean(torch.sum(loss, dim=-1))

@@ -39,7 +39,7 @@ def load_retina_file(file_path):
 
 if __name__ == '__main__':
 
-    ONet_file = './model/model_file/onnx_mnn/ONet-tracker-light-5_2.mnn'
+    ONet_file = './model/model_file/onnx_mnn/ONet-tracker-light-5_5.mnn'
     label_file = '/home/data/Datasets/track/track_val.txt'
     df = load_retina_file(label_file)
     anno_boxes = []
@@ -58,7 +58,7 @@ if __name__ == '__main__':
     y2_loss = []
     cut_tmp = None
     find_face = 1
-    fc = True
+    fc = False
 
     for i in tqdm(range(300)):
         img_name = df.iloc[i]['name']

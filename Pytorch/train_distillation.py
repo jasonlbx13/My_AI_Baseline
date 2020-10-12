@@ -7,8 +7,8 @@ from tqdm import tqdm
 import torch
 import torchvision.transforms.functional as T
 from torch.utils.data import Dataset, DataLoader
-from model.dbface_small import DBFace
-from model.dbface_big import DBFace as teacher
+from model.dbface_light import DBFace
+from model.dbface_big import DBFace as Teacher
 from tensorboardX import SummaryWriter
 import cv2
 import eval
@@ -102,6 +102,9 @@ class LDataset(Dataset):
             gamma = min(max(0, gamma), 10) + 1
             preprocess.draw_gaussian(heatmap_posweight[classes, :, :], (cx, cy), posweight_radius, k=gamma)
 
+            teacher_posweight = heatmap_posweight.copy()
+            teacher_posweight[np.where(teacher_posweight > 0)] = 1
+
             range_expand_x = math.ceil(w_radius)
             range_expand_y = math.ceil(h_radius)
 
@@ -115,7 +118,6 @@ class LDataset(Dataset):
 			
             if obj.haslandmark:
                 reg_landmark = np.array(obj.x5y5_cat_landmark) / stride
-                print (reg_landmark)
                 x5y5 = [cx]*5 + [cy]*5
                 rvalue = (reg_landmark - x5y5)
                 landmark_gt[0:10, cy, cx] = np.array(preprocess.log(rvalue)) / 4
@@ -144,7 +146,7 @@ class LDataset(Dataset):
                                 reg_mask[classes, cy, cx] = 1
 
 
-        return T.to_tensor(image), heatmap_gt, heatmap_posweight, reg_tlrb, reg_mask, landmark_gt, landmark_mask, len(objs), keep_mask
+        return T.to_tensor(image), heatmap_gt, heatmap_posweight, teacher_posweight, reg_mask, landmark_gt, landmark_mask, len(objs), keep_mask
 
 
 
@@ -158,7 +160,14 @@ class App(object):
         self.lr = 1e-4
         self.gpus = [0] #[0, 1, 2, 3]
         self.gpu_master = self.gpus[0]
-        self.model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA")
+        self.teacher = Teacher()
+        self.teacher.cuda(device=self.gpu_master)
+        self.teacher.load('/home/working/DBFace/model/model_file/dbface_teacher.pth')
+
+        for param in self.teacher.parameters():
+            param.requeires_grad = False
+
+        self.model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.75)
         self.model.init_weights()
         #self.model = nn.DataParallel(self.model, device_ids=self.gpus)
         self.model.cuda(device=self.gpu_master)
@@ -167,6 +176,9 @@ class App(object):
         self.focal_loss = losses.FocalLoss()
         self.giou_loss = losses.GIoULoss()
         self.landmark_loss = losses.WingLoss(w=2)
+        self.kl_loss = losses.KLLoss()
+        self.gamma = 0.7
+
         self.train_dataset = LDataset(labelfile, imagesdir, mean=self.mean, std=self.std, width=self.width, height=self.height)
         self.train_loader = DataLoader(dataset=self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=2)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
@@ -198,7 +210,7 @@ class App(object):
 
     def train_epoch(self, epoch):
         
-        for indbatch, (images, heatmap_gt, heatmap_posweight, reg_tlrb, reg_mask, landmark_gt, landmark_mask, num_objs, keep_mask) in enumerate(self.train_loader):
+        for indbatch, (images, heatmap_gt, heatmap_posweight, teacher_posweight, reg_tlrb, reg_mask, landmark_gt, landmark_mask, num_objs, keep_mask) in enumerate(self.train_loader):
 
             self.iter += 1
 
@@ -218,14 +230,22 @@ class App(object):
             images              = images.to(self.gpu_master)
 
             hm, tlrb, landmark  = self.model(images)
-            # hm = hm.sigmoid()
+            hm_t, tlrb_t, landmark_t = self.teacher(images)
+
             hm = torch.clamp(hm, min=1e-4, max=1-1e-4)
-            # tlrb = torch.exp(tlrb)
+
 
             hm_loss = self.focal_loss(hm, heatmap_gt, heatmap_posweight, keep_mask=keep_mask) / batch_objs
+            hm_st_loss = self.focal_loss(hm, hm_t, teacher_posweight, keep_mask=keep_mask) / batch_objs
+            hm_kl_loss = self.kl_loss(hm_loss, hm_t)*100
+
             reg_loss = self.giou_loss(tlrb, reg_tlrb, reg_mask)*5
+            #reg_st_loss = self.giou_loss(tlrb, tlrb_t, reg_mask)*5
+
             landmark_loss = self.landmark_loss(landmark, landmark_gt, landmark_mask)*0.1
-            loss = hm_loss + reg_loss + landmark_loss
+            #landmark_st_loss = self.landmark_loss(landmark, landmark_t, landmark_mask)*0.1
+
+            loss = (1-self.gamma)*hm_loss + self.gamma*hm_st_loss + reg_loss + landmark_loss + hm_kl_loss
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -236,6 +256,7 @@ class App(object):
             if indbatch % 10 == 0:
                 self.writer.add_scalar('lr', self.lr, self.iter)
                 self.writer.add_scalar('hm_loss', hm_loss, self.iter)
+                self.writer.add_scalar('hm_kl_loss', hm_kl_loss, self.iter)
                 self.writer.add_scalar('reg_loss', reg_loss, self.iter)
                 self.writer.add_scalar('landmark_loss', landmark_loss, self.iter)
                 self.writer.add_scalar('loss', loss, epoch)
@@ -328,10 +349,10 @@ class App(object):
 
 if __name__ == '__main__':
 
-    trial_name = "try1"
+    trial_name = "dl1"
     jobdir = f"./output/train_result/{trial_name}"
 
     log = logger.create(trial_name, f"{jobdir}/logs/{trial_name}.log")
-    app = App("/home/data/Datasets/WIDERFace/retinaface_labels/train/label.txt",
-              "/home/data/Datasets/WIDERFace/WIDER_train/images")
+    app = App("/home/working/Datasets/ws_50_dt.txt",
+              "/home/working/Datasets/")
     app.train()

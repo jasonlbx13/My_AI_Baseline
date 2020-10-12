@@ -525,7 +525,7 @@ class Tracker:
 
 if __name__ == '__main__':
 
-    ONet_file = './model/model_file/onnx_mnn/ONet-tracker-light-5_2.mnn'
+    ONet_file = './model/model_file/onnx_mnn/ONet-tracker-light-5_4.mnn'
     DBFace_file = './model/model_file/onnx_mnn/dbface_teacher.mnn'
     tk = Tracker(ONet_file, DBFace_file)
 

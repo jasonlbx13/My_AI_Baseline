@@ -10,7 +10,7 @@ import onnxruntime
 import MNN
 import torch.nn.functional as F
 import torch.nn as nn
-from model.dbface_big import DBFace
+from model.dbface_light import DBFace
 # from model.dbface_small import DBFace
 from utils import preprocess
 from model.losses import GIoULoss
@@ -58,8 +58,12 @@ def eval_reg(model, gt):
 
 if __name__ == '__main__':
 
-    model = DBFace()
-    model_path = './model/model_file/dbface_teacher.pth'
+    model = DBFace(has_landmark=True, wide=24, has_ext=False, upmode="UCBA", compress=0.75)
+
+    max_score = 0
+    max_index = 0
+
+    model_path = './model/model_file/dbface_light_dl4.pth'
     model.load(model_path)
     model.eval()
     model.cuda()

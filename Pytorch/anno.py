@@ -26,7 +26,7 @@ def predict(root, name_list, model):
         img_path = os.path.join(root, name_list[i])
         img = cv2.imread(img_path)
         # try:
-        objs = detect(model, img, 0.4, resize=True)[0]
+        objs = detect(model, img, 0.4, resize=False)[0]
         objss[name_list[i]] = objs
         # except:
         #     print (img_path)
@@ -56,9 +56,9 @@ if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     model_path = './model/model_file/dbface_big.pth'
-    root = '/home/data/Datasets/WIDERFace/WIDER_val/20cut_img/images'
-    label_path = '/home/data/Datasets/WIDERFace/WIDER_val/20cut_img/lc_list.txt'
-    output_file = '/home/data/Datasets/WIDERFace/WIDER_val/label.txt'
+    root = '/home/data/Datasets/SD/self_val/20cut_img/images'
+    label_path = '/home/data/Datasets/SD/self_val/20cut_img/lc_list.txt'
+    output_file = '/home/data/Datasets/SD/self_val/20cut_img/label.txt'
 
     dbface = DBFace()
     dbface.eval()

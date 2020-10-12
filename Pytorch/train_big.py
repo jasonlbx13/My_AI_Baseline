@@ -157,7 +157,7 @@ class App(object):
         self.gpus = [7] #[0, 1, 2, 3]
         self.gpu_master = self.gpus[0]
         self.model = DBFace()
-        self.model.init_weights()
+        self.model.load('/home/data/DBFace/model/dbface.pth')
         #self.model = nn.DataParallel(self.model, device_ids=self.gpus)
         self.model.cuda(device=self.gpu_master)
         self.model.train()

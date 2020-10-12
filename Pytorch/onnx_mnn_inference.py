@@ -24,7 +24,7 @@ class Infer:
 
     def predict(self, image, threshold=0.4):
         a = time.time()
-        size = 256
+        size = 320
         w, h = image.shape[1], image.shape[0]
         max_wh = max(w, h)
         scale = max_wh / size
@@ -33,6 +33,7 @@ class Infer:
         image = cv2.resize(newImage, (size, size))
         image = ((image / 255. - self.mean) / self.std).astype(np.float32)
         input = image.transpose(2, 0, 1)[np.newaxis, :]
+        iw, ih = size, size
         print('qianchuli:{}'.format(time.time() - a))
         if self.model_type == 'onnx':
             ort_inputs = {self.ort_session.get_inputs()[0].name: input}
@@ -43,7 +44,6 @@ class Infer:
 
         else:
             c = time.time()
-            iw, ih = size, size
             self.interpreter.resizeTensor(self.input_tensor, (1, 3, ih, iw))
             self.interpreter.resizeSession(self.session)
             tmp_input = MNN.Tensor((1, 3, ih, iw), MNN.Halide_Type_Float, \
@@ -141,7 +141,7 @@ class Infer:
     def draw(self, image, objs, camera=False):
 
         for obj in objs:
-            x, y, r, b = [int(obj['box'][i]) for i in range(4)]
+            x, y, r, b = [int(round(obj['box'][i])) for i in range(4)]
             cv2.rectangle(image, (x, y, r - x + 1, b - y + 1), (0, 255, 0), 2, 16)
             text = f"{obj['score']:.2f}"
             cv2.putText(image, text, (x + 3, y - 5), 0, 0.5, (0, 0, 0), 1, 16)
@@ -155,14 +155,15 @@ class Infer:
         else:
             pass
 
-    def camera(self, threshold = 0.4):
+    def camera(self, threshold = 0.4, shake_off = True):
 
         cap = cv2.VideoCapture(0)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 256)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 256)
         ok, frame = cap.read()
-
+        cache = [{'box': np.array([0, 0, 0, 0]), 'score': 0}]
         pad = True
+
 
         while ok:
             if pad:
@@ -176,6 +177,14 @@ class Infer:
             frame = cv2.flip(frame, 1)
             # frame = cv2.rotate(frame, cv2.ROTATE_180)
             objs = self.predict(frame, threshold)
+            # 去抖
+            if shake_off == True:
+                if len(objs) == len(cache):
+                    for i in range(len(objs)):
+                        for j in range(4):
+                            if abs(cache[i]['box'][j]-objs[i]['box'][j]) < 1:
+                                objs[i]['box'][j] = cache[i]['box'][j]
+                cache = objs.copy()
 
             self.draw(frame, objs, camera=True)
 
@@ -192,16 +201,17 @@ class Infer:
 
 if __name__ == '__main__':
 
-    onnx_file = './model/model_file/onnx_mnn/dbface_light_nolandmark.onnx'
-    mnn_file = './model/model_file/onnx_mnn/dbface_teacher.mnn'
+    onnx_file = './model/model_file/onnx_mnn/dbface_light_dl3.onnx'
+    mnn_file = './model/model_file/onnx_mnn/dbface_light_dl4.mnn'
     # mnn_file = './model/model_file/onnx_mnn/quan.mnn'
     infer = Infer(mnn_file)
-    infer.camera(0.72)
+    # infer.camera(0.72, False)
 
-    # img_path = "/home/data/Datasets/spider/ditou/baiduditou00197.jpg"
-    # image = cv2.imread(img_path)
-    # objs = infer.predict(image, 0.4)
-    # infer.draw(image, objs)
+    for i in range(10):
+        img_path = f"/home/data/TestImg/{i}.jpg"
+        image = cv2.imread(img_path)
+        objs = infer.predict(image, 0.4)
+        infer.draw(image, objs)
 
 
 

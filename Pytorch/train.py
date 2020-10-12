@@ -209,6 +209,7 @@ class App(object):
 
             heatmap_gt          = heatmap_gt.to(self.gpu_master)
             heatmap_posweight   = heatmap_posweight.to(self.gpu_master)
+            teacher_posweight   = teacher_posweight.to(self.gpu_master)
             keep_mask           = keep_mask.to(self.gpu_master)
             reg_tlrb            = reg_tlrb.to(self.gpu_master)
             reg_mask            = reg_mask.to(self.gpu_master)
